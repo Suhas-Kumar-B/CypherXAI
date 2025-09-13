@@ -1,0 +1,90 @@
+{
+    "file_name": "98ec9509-aad4-4c7f-9ea3-5508220a4fc0.apk",
+    "prediction": "Benign",
+    "confidence_score": 0.98,
+    "vulnerabilities_found": [],
+    "pentest_findings": [
+        {
+            "id": "P1",
+            "title": "Dangerous permissions requested",
+            "severity": "High",
+            "evidence": [
+                "android.permission.CAMERA",
+                "android.permission.READ_EXTERNAL_STORAGE",
+                "android.permission.RECORD_AUDIO",
+                "android.permission.WRITE_EXTERNAL_STORAGE"
+            ],
+            "recommendation": "Request only permissions strictly needed; consider scoped storage and runtime permission prompts with justification."
+        },
+        {
+            "id": "P2",
+            "title": "Exported components with intent-filters",
+            "severity": "Medium",
+            "evidence": [
+                "androidx.profileinstaller.ProfileInstallReceiver",
+                "androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryChargingProxy",
+                "androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryNotLowProxy",
+                "androidx.work.impl.background.systemalarm.ConstraintProxy$NetworkStateProxy",
+                "androidx.work.impl.background.systemalarm.ConstraintProxy$StorageNotLowProxy",
+                "androidx.work.impl.background.systemalarm.ConstraintProxyUpdateReceiver",
+                "androidx.work.impl.background.systemalarm.RescheduleReceiver",
+                "androidx.work.impl.diagnostics.DiagnosticsReceiver",
+                "app.notifee.core.AlarmPermissionBroadcastReceiver",
+                "app.notifee.core.BlockStateBroadcastReceiver",
+                "app.notifee.core.NotificationAlarmReceiver",
+                "app.notifee.core.RebootBroadcastReceiver",
+                "com.google.firebase.iid.FirebaseInstanceIdReceiver",
+                "com.google.firebase.messaging.FirebaseMessagingService",
+                "com.scee.psxandroid.activity.TopActivity",
+                "com.sony.sie.metropolis.account.AccountWebViewActivity",
+                "com.sony.sie.metropolis.push.FcmMessagingService",
+                "com.sony.sie.mps.rn.account.ls.client.AccountChangeReceiver",
+                "com.sony.snei.np.android.sso.service.SsoService",
+                "io.invertase.firebase.messaging.ReactNativeFirebaseMessagingReceiver",
+                "io.invertase.firebase.messaging.ReactNativeFirebaseMessagingService"
+            ],
+            "recommendation": "Add android:exported=\"false\" where appropriate or require permissions/signature-level checks; validate intents."
+        },
+        {
+            "id": "P3",
+            "title": "Risky API usage (WebView/Network/Dynamic loading)",
+            "severity": "Medium",
+            "evidence": [
+                "Landroid/webkit/WebView;->addJavascriptInterface(Ljava/lang/Object; Ljava/lang/String;)V",
+                "Ljava/net/HttpURLConnection;->disconnect()V",
+                "Ljava/net/HttpURLConnection;->getErrorStream()Ljava/io/InputStream;",
+                "Ljava/net/HttpURLConnection;->getFollowRedirects()Z",
+                "Ljava/net/HttpURLConnection;->getHeaderFieldDate(Ljava/lang/String; J)J",
+                "Ljava/net/HttpURLConnection;->getRequestMethod()Ljava/lang/String;",
+                "Ljava/net/HttpURLConnection;->getResponseCode()I",
+                "Ljava/net/HttpURLConnection;->getResponseMessage()Ljava/lang/String;",
+                "Ljava/net/HttpURLConnection;->setChunkedStreamingMode(I)V",
+                "Ljava/net/HttpURLConnection;->setFixedLengthStreamingMode(I)V",
+                "Ljava/net/HttpURLConnection;->setInstanceFollowRedirects(Z)V",
+                "Ljava/net/HttpURLConnection;->setRequestMethod(Ljava/lang/String;)V"
+            ],
+            "recommendation": "Avoid JS bridges or restrict to trusted contexts; enforce TLS; avoid dynamic code loading; enable network security config."
+        },
+        {
+            "id": "P5",
+            "title": "Native libraries detected",
+            "severity": "Info",
+            "evidence": [
+                "androidx.camera.extensions.impl"
+            ],
+            "recommendation": "Harden NDK code with stack canaries, RELRO/PIE, and avoid dynamic loading of untrusted code."
+        }
+    ],
+    "anomaly_detection": {
+        "score": 0.06,
+        "level": "Low",
+        "components": {
+            "uncertainty": 0.02,
+            "vote_std": 0.14,
+            "novelty": 0.042,
+            "unseen_feature_count": 342,
+            "total_feature_count": 8122
+        },
+        "notes": "Higher scores indicate the sample is atypical relative to the training distribution; investigate further."
+    }
+}

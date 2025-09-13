@@ -1,0 +1,5 @@
+androguard==3.3.5
+scikit-learn
+joblib
+numpy
+google-generativeai
