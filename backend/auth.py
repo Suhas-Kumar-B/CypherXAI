@@ -2,11 +2,12 @@
 from fastapi import Security, HTTPException, status
 from fastapi.security import APIKeyHeader
 from backend.db import get_username_for_api_key
+import os
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
-# Admin API key for admin endpoint protection (set via env in prod)
-ADMIN_API_KEY = "your-secure-admin-key"
+# Admin API key for admin endpoint protection (configured via env)
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
 
 async def validate_api_key(api_key_header_value: str = Security(api_key_header)) -> str:
     if not api_key_header_value:
@@ -21,4 +22,4 @@ async def validate_api_key(api_key_header_value: str = Security(api_key_header))
     return username
 
 def is_admin(admin_key: str):
-    return admin_key == ADMIN_API_KEY
+    return ADMIN_API_KEY and admin_key == ADMIN_API_KEY

@@ -15,7 +15,7 @@ class ApiClient {
   
   final Dio dio = Dio();
   
-  static const ADMIN_API_KEY = "your-secure-admin-key";
+  static const ADMIN_API_KEY = String.fromEnvironment('ADMIN_API_KEY', defaultValue: '');
 
   // Helper to make API calls
   Map<String, String> _getHeaders({Map<String, String>? additionalHeaders}) {

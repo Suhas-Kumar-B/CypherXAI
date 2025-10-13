@@ -30,21 +30,10 @@ class AuthService extends ChangeNotifier {
   bool get isLoggedIn => _role != null && _authenticatedWithBackend;
 
   // Admin whitelist (ONLY these can access Admin side)
-  static const _admins = <String, String>{
-    'admin@cipherx.com': 'admin123',
-    'testadmin@cipherx.com': 'test123',
-    'suhaskumarb748@gmail.com': 'suhas@123',
-    'vishnup2603@gmail.com': 'vishnu@123',
-    'sanjana@gmail.com': 'sanjana@123',
-    'sanjanar.ten@gmail.com': 'CUTIE@1',
-  };
-
-  // Test user accounts for easy testing
-  static const _userCred = {
-    'test@cipherx.com': 'test123',
-    'user@cipherx.com': 'user123',
-    'demo@cipherx.com': 'demo123',
-    'dummy@gmail.com': 'qwerty123',
+  static const _admins = <String>{
+    'admin@cipherx.com',
+    'testadmin@cipherx.com',
+    'suhaskumarb748@gmail.com',
   };
 
   static String displayNameFromEmail(String email) {
@@ -63,70 +52,41 @@ class AuthService extends ChangeNotifier {
     return name.isEmpty ? email : name;
   }
 
-  // Initialize with backend API
-  Future<void> _setupBackendConnection() async {
-    final apiClient = ApiClient();
-    
-    try {
-      // Always ensure a backend user exists and get an API key for this username
-      final response = await apiClient.createUser(_username!);
-      _apiKey = response['api_key'] as String?;
-      
-      if (_apiKey != null && _apiKey!.isNotEmpty) {
-        final isValidKey = await _validateApiKey(_apiKey!);
-        if (isValidKey) {
-          _authenticatedWithBackend = true;
-        } else {
-          // Clear authentication on invalid API key
-          _role = null;
-          _username = null;
-          _apiKey = null;
-          _authenticatedWithBackend = false;
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Backend authentication error: $e');
-      }
-      _authenticatedWithBackend = false;
-    }
-  }
+  // No auto-provisioning; authentication relies on API key validation
+  Future<void> _setupBackendConnection() async {}
 
   Future<bool> _validateApiKey(String apiKey) async {
     final apiClient = ApiClient();
     return await apiClient.authenticate(apiKey);
   }
 
-  Future<AuthResult> login(String email, String password) async {
-    // Admins only if in whitelist and password matches
-    if (_admins.containsKey(email) && _admins[email] == password) {
+  Future<AuthResult> login(String email, String passwordOrKey) async {
+    // Admin: email must be in whitelist and key must match dart-define ADMIN_API_KEY
+    if (_admins.contains(email) && ApiClient.ADMIN_API_KEY.isNotEmpty && passwordOrKey == ApiClient.ADMIN_API_KEY) {
       _role = AuthRole.admin;
       _username = email;
-      await _setupBackendConnection();
+      _authenticatedWithBackend = true; // admin actions use X-Admin-Key
       _recordActivity(email, 'LOGIN (ADMIN)');
       notifyListeners();
-      return AuthResult(
-        ok: true, 
-        role: AuthRole.admin,
-        apiKey: _apiKey,
-      );
+      return const AuthResult(ok: true, role: AuthRole.admin);
     }
 
-    // Regular user
-    if (_userCred[email] == password) {
-      _role = AuthRole.user;
-      _username = email;
-      await _setupBackendConnection();
-      _recordActivity(email, 'LOGIN (USER)');
-      notifyListeners();
-      return AuthResult(
-        ok: true, 
-        role: AuthRole.user,
-        apiKey: _apiKey,
-      );
+    // User: password field is the API key
+    final providedApiKey = passwordOrKey.trim();
+    if (providedApiKey.isNotEmpty) {
+      final valid = await _validateApiKey(providedApiKey);
+      if (valid) {
+        _role = AuthRole.user;
+        _username = email;
+        _apiKey = providedApiKey;
+        _authenticatedWithBackend = true;
+        _recordActivity(email, 'LOGIN (USER)');
+        notifyListeners();
+        return AuthResult(ok: true, role: AuthRole.user, apiKey: _apiKey);
+      }
     }
 
-    return const AuthResult(ok: false, message: 'Invalid credentials');
+    return const AuthResult(ok: false, message: 'Invalid email or key');
   }
 
   // Direct API key authentication (for backend integration)
@@ -148,8 +108,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<String?> _getUsernameFromApiKey(String apiKey) async {
-    // This would ideally come from backend, for now return unknown
-    return 'user@example.com';
+    return _username; // placeholder
   }
 
   void logout() {

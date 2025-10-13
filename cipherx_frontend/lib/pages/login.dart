@@ -37,20 +37,16 @@ class _LoginPageState extends State<LoginPage> {
         content: const Text(
           '• Admin login opens the Admin Console.\n'
           '• User login opens the User Dashboard.\n'
-          '• Use Logout from any side to return here.\n'
-          '• Switch between Username/Password and API Key modes.\n\n'
-          'TEST ADMIN ACCOUNTS:\n'
-          '  - admin@cipherx.com / admin123\n'
-          '  - testadmin@cipherx.com / test123\n\n'
-          'TEST USER ACCOUNTS:\n'
-          '  - test@cipherx.com / test123\n'
-          '  - user@cipherx.com / user123\n'
-          '  - demo@cipherx.com / demo123\n\n'
-          'API KEY MODE:\n'
-          '  Use: vd2JkRmLVo4xTqEYzGA4qLzm5sSCIe0MQUZDwOtmySk\n\n'
-          'LEGACY ACCOUNTS:\n'
-          '  - dummy@gmail.com / qwerty123\n'
-          '  - suhaskumarb748@gmail.com / suhas@123',
+          '• Use Logout from any side to return here.\n\n'
+          'AUTH MODEL:\n'
+          '  - User: Email + API Key (key from backend)\n'
+          '  - Admin: Admin Email + ADMIN_API_KEY (dart-define)\n\n'
+          'EXAMPLES (Users):\n'
+          '  - test@cipherx.com + <API_KEY>\n'
+          '  - user@cipherx.com + <API_KEY>\n'
+          '  - demo@cipherx.com + <API_KEY>\n\n'
+          'ADMIN KEY:\n'
+          '  Pass via: --dart-define=ADMIN_API_KEY=...\n',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
