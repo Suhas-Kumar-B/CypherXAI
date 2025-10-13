@@ -1,3 +1,4 @@
+# backend/main.py
 from fastapi import (
     FastAPI,
     Depends,
@@ -7,11 +8,14 @@ from fastapi import (
     Query,
     Header,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import secrets
+import os
 
-from backend.auth import validate_api_key, is_admin, VALID_API_KEYS, ADMIN_API_KEY
+from backend.db import init_db, create_user
+from backend.auth import validate_api_key, is_admin, ADMIN_API_KEY
 from backend.models import (
     ScanResponse,
     JobStatus,
@@ -24,30 +28,44 @@ from backend.models import (
 )
 from backend.service import (
     submit_scan,
+    process_scan,
     get_result,
     get_status,
     get_history,
     get_download_path,
-    generate_gemini_report,
-    USER_JOBS,
+    get_gemini_report,
 )
 
 app = FastAPI(title="CipherX APK Security Analysis Backend")
 
+# ----- init DB on startup -----
+init_db()
+
+# ----- (optional) CORS for local UI -----
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("CORS_ALLOW_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ------------------ Admin ------------------
+
 @app.post("/admin/create-user", tags=["Admin"])
-async def create_user(
+async def create_user_endpoint(
     username: str,
     x_admin_key: str = Header(..., alias="X-Admin-Key"),
 ):
     if not is_admin(x_admin_key):
         raise HTTPException(403, "Forbidden: Invalid admin key")
-    if username in USER_JOBS:
+    try:
+        api_key = create_user(username)
+        return {"username": username, "api_key": api_key}
+    except ValueError:
         raise HTTPException(400, "Username already exists")
-    api_key = secrets.token_urlsafe(32)
-    VALID_API_KEYS[api_key] = username
-    USER_JOBS[username] = {}
-    return {"username": username, "api_key": api_key}
 
+# ------------------ User ------------------
 
 @app.post("/scan", response_model=ScanResponse, tags=["User"])
 async def scan_apk(
@@ -58,79 +76,84 @@ async def scan_apk(
     use_gemini: bool = Query(False),
     gemini_api_key: str = Query(None),
 ):
+    # simple guard: only .apk
+    if not (file.filename or "").lower().endswith(".apk"):
+        raise HTTPException(400, "Only .apk files are accepted")
+
     options = {
         "run_pentest": run_pentest,
         "run_anomaly": run_anomaly,
         "use_gemini": use_gemini,
         "gemini_api_key": gemini_api_key,
     }
-    job_id = submit_scan(file, options, current_username)
-    app_name = USER_JOBS[current_username][job_id]["app_name"]
-    return ScanResponse(job_id=job_id, job_name=app_name, status="queued")
 
+    job = submit_scan(file, options, current_username)
+    # synchronous processing
+    process_scan(current_username, job["job_id"])
+    return ScanResponse(job_id=job["job_id"], job_name=job["app_name"], status="done")
 
 @app.get("/status/{job_id}", response_model=JobStatus, tags=["User"])
 async def status(job_id: str, current_username: str = Depends(validate_api_key)):
     status_value = get_status(current_username, job_id)
     if status_value == "not_found":
         raise HTTPException(404, "Job ID not found")
-    app_name = USER_JOBS[current_username][job_id].get("app_name", "") if status_value != "not_found" else ""
+    # App name from history (cheap fetch)
+    hist = get_history(current_username)
+    app_name = next((h["app_name"] for h in hist if h["job_id"] == job_id), "")
     return JobStatus(job_id=job_id, job_name=app_name, status=status_value, progress=100 if status_value == "done" else 0)
-
 
 @app.get("/result/{job_id}", response_model=FullReport, tags=["User"])
 async def full_report(job_id: str, current_username: str = Depends(validate_api_key)):
-    user_jobs = USER_JOBS.get(current_username, {})
-    job = user_jobs.get(job_id)
-    if not job or job.get("result") is None:
+    result = get_result(current_username, job_id)
+    if not result:
         raise HTTPException(404, "Result not found or job incomplete")
-    return FullReport(job_id=job_id, job_name=job.get("app_name", ""), result=job["result"])
-
+    hist = get_history(current_username)
+    app_name = next((h["app_name"] for h in hist if h["job_id"] == job_id), "")
+    return FullReport(job_id=job_id, job_name=app_name, result=result)
 
 @app.get("/pentest/{job_id}", response_model=PentestResult, tags=["User"])
 async def pentest_only(job_id: str, current_username: str = Depends(validate_api_key)):
     result = get_result(current_username, job_id)
     if not result or "pentest_findings" not in result:
         raise HTTPException(404, "Pentest results not found")
-    app_name = USER_JOBS[current_username][job_id].get("app_name", "")
+    hist = get_history(current_username)
+    app_name = next((h["app_name"] for h in hist if h["job_id"] == job_id), "")
     return PentestResult(job_id=job_id, job_name=app_name, pentest_findings=result["pentest_findings"])
-
 
 @app.get("/anomaly/{job_id}", response_model=AnomalyResult, tags=["User"])
 async def anomaly_only(job_id: str, current_username: str = Depends(validate_api_key)):
     result = get_result(current_username, job_id)
     if not result or "anomaly_detection" not in result:
         raise HTTPException(404, "Anomaly detection results not found")
-    app_name = USER_JOBS[current_username][job_id].get("app_name", "")
+    hist = get_history(current_username)
+    app_name = next((h["app_name"] for h in hist if h["job_id"] == job_id), "")
     return AnomalyResult(job_id=job_id, job_name=app_name, anomaly_detection=result["anomaly_detection"])
 
-
 @app.get("/gemini/{job_id}", response_model=GeminiReport, tags=["User"])
-async def gemini_report(
-    job_id: str, current_username: str = Depends(validate_api_key), gemini_api_key: str = Query(None)
-):
-    if not gemini_api_key:
-        raise HTTPException(400, "Gemini API key is required")
-    report = generate_gemini_report(current_username, job_id, gemini_api_key)
+async def gemini_report(job_id: str, current_username: str = Depends(validate_api_key)):
+    report = get_gemini_report(current_username, job_id)
     if report is None:
-        raise HTTPException(404, "Gemini report could not be generated")
-    app_name = USER_JOBS[current_username][job_id].get("app_name", "")
+        raise HTTPException(404, "Gemini report not available for this job")
+    hist = get_history(current_username)
+    app_name = next((h["app_name"] for h in hist if h["job_id"] == job_id), "")
     return GeminiReport(job_id=job_id, job_name=app_name, gemini_report=report)
-
 
 @app.get("/history", response_model=JobHistory, tags=["User"])
 async def job_history(current_username: str = Depends(validate_api_key)):
-    user_jobs = USER_JOBS.get(current_username, {})
-    history = [
-        JobHistoryItem(
-            job_id=job_id,
-            job_name=data.get("app_name", ""),
-            status=data.get("status", "unknown"),
+    raw = get_history(current_username)
+    items = []
+    for item in raw:
+        items.append(
+            JobHistoryItem(
+                name=item["app_name"],
+                prediction=item.get("prediction"),
+                file_size=int(item.get("file_size") or 0),
+                id=item["job_id"],
+                date_time=str(item.get("created_at")),
+                download=f"/download/{item['job_id']}",
+            )
         )
-        for job_id, data in user_jobs.items()
-    ]
-    return JobHistory(jobs=history)
-
+    return JobHistory(items=items)
 
 @app.get("/download/{job_id}", tags=["User"])
 async def download_report(job_id: str, current_username: str = Depends(validate_api_key)):
@@ -139,14 +162,11 @@ async def download_report(job_id: str, current_username: str = Depends(validate_
         raise HTTPException(404, "Download file not found")
     return FileResponse(str(path), filename=f"{job_id}.json", media_type="application/json")
 
-
 @app.get("/", tags=["Root"])
 async def root():
     return {"message": "CipherX backend is up and running"}
 
-
-# OpenAPI schema customization to show API key auth in Swagger UI
-
+# ----- Swagger API-key hint -----
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema

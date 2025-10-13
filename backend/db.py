@@ -1,0 +1,167 @@
+# backend/db.py
+import sqlite3
+import secrets
+import json
+import threading
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+
+_DB_PATH = Path(__file__).parent / "cipherx.db"
+_LOCK = threading.Lock()
+
+
+def _conn():
+    # allow usage from FastAPI BackgroundTasks threads
+    return sqlite3.connect(str(_DB_PATH), check_same_thread=False)
+
+
+def _ensure_columns(cx: sqlite3.Connection):
+    cur = cx.execute("PRAGMA table_info(jobs)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "file_size" not in cols:
+        cx.execute("ALTER TABLE jobs ADD COLUMN file_size INTEGER DEFAULT 0")
+    if "prediction" not in cols:
+        cx.execute("ALTER TABLE jobs ADD COLUMN prediction TEXT")
+
+
+def init_db():
+    with _LOCK, _conn() as cx:
+        cx.execute(
+            """
+        CREATE TABLE IF NOT EXISTS users (
+            api_key TEXT PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE
+        );
+        """
+        )
+        cx.execute(
+            """
+        CREATE TABLE IF NOT EXISTS jobs (
+            job_id TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            app_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            options_json TEXT,
+            result_json TEXT,
+            gemini_report TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        )
+        _ensure_columns(cx)
+        cx.commit()
+
+
+def create_user(username: str) -> str:
+    with _LOCK, _conn() as cx:
+        # If user already exists, return the existing api_key (idempotent behavior)
+        cur = cx.execute("SELECT api_key FROM users WHERE username=?", (username,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return row[0]
+
+        api_key = secrets.token_urlsafe(32)
+        cx.execute("INSERT INTO users(api_key, username) VALUES(?, ?)", (api_key, username))
+        cx.commit()
+        return api_key
+
+
+def get_username_for_api_key(api_key: str) -> Optional[str]:
+    with _LOCK, _conn() as cx:
+        cur = cx.execute("SELECT username FROM users WHERE api_key=?", (api_key,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
+def create_job(
+    username: str,
+    job_id: str,
+    app_name: str,
+    status: str,
+    options: Dict[str, Any],
+    *,
+    file_size: int = 0,
+):
+    with _LOCK, _conn() as cx:
+        cx.execute(
+            """
+            INSERT INTO jobs(job_id, username, app_name, status, options_json, file_size)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """,
+            (job_id, username, app_name, status, json.dumps(options or {}), int(file_size or 0)),
+        )
+        cx.commit()
+
+
+def update_job_status(job_id: str, status: str):
+    with _LOCK, _conn() as cx:
+        cx.execute("UPDATE jobs SET status=? WHERE job_id=?", (status, job_id))
+        cx.commit()
+
+
+def save_job_result(job_id: str, result: Dict[str, Any]):
+    with _LOCK, _conn() as cx:
+        cx.execute("UPDATE jobs SET result_json=? WHERE job_id=?", (json.dumps(result or {}), job_id))
+        cx.commit()
+
+
+def set_job_prediction(job_id: str, prediction: Optional[str]):
+    with _LOCK, _conn() as cx:
+        cx.execute("UPDATE jobs SET prediction=? WHERE job_id=?", (prediction, job_id))
+        cx.commit()
+
+
+def save_gemini_report(job_id: str, report_md: str):
+    with _LOCK, _conn() as cx:
+        cx.execute("UPDATE jobs SET gemini_report=? WHERE job_id=?", (report_md, job_id))
+        cx.commit()
+
+
+def get_user_job(username: str, job_id: str) -> Optional[Dict[str, Any]]:
+    with _LOCK, _conn() as cx:
+        cur = cx.execute(
+            """
+            SELECT job_id, username, app_name, status, options_json, result_json, gemini_report, file_size, prediction, created_at
+            FROM jobs WHERE job_id=? AND username=?
+        """,
+            (job_id, username),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        return {
+            "job_id": row[0],
+            "username": row[1],
+            "app_name": row[2],
+            "status": row[3],
+            "options": json.loads(row[4]) if row[4] else {},
+            "result": json.loads(row[5]) if row[5] else None,
+            "gemini_report": row[6],
+            "file_size": row[7] or 0,
+            "prediction": row[8],
+            "created_at": row[9],
+        }
+
+
+def get_history(username: str) -> List[Dict[str, Any]]:
+    with _LOCK, _conn() as cx:
+        cur = cx.execute(
+            """
+            SELECT job_id, app_name, status, file_size, prediction, created_at FROM jobs
+            WHERE username=?
+            ORDER BY datetime(created_at) DESC
+        """,
+            (username,),
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "job_id": r[0],
+                "app_name": r[1],
+                "status": r[2],
+                "file_size": r[3] or 0,
+                "prediction": r[4],
+                "created_at": r[5],
+            }
+            for r in rows
+        ]

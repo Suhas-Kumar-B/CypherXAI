@@ -5,3 +5,5 @@ python-multipart
 joblib
 numpy
 scikit-learn
+google-generativeai
+tqdm

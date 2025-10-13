@@ -2,12 +2,15 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 class JobHistoryItem(BaseModel):
-    job_id: str = Field(..., description="Unique job identifier")
-    job_name: str = Field(..., description="APK file base name (app name)")
-    status: str = Field(..., description="Current job status (queued, processing, done, failed)")
+    name: str
+    prediction: Optional[str] = None
+    file_size: int
+    id: str
+    date_time: str
+    download: str
 
 class JobHistory(BaseModel):
-    jobs: List[JobHistoryItem]
+    items: List[JobHistoryItem]
 
 class ScanOptions(BaseModel):
     run_pentest: bool = True
