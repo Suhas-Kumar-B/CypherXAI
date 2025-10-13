@@ -66,3 +66,11 @@ android/app/release/
 # Environment files
 .env
 
+echo "venv/
+backend/venv/
+*.apk
+*.pyd
+" > .gitignore
+
+
+
