@@ -1,7 +1,7 @@
 # backend/auth.py
 from fastapi import Security, HTTPException, status
 from fastapi.security import APIKeyHeader
-from backend.db import get_username_for_api_key
+from backend.db import get_username_for_api_key, is_admin_user
 import os
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
@@ -21,5 +21,10 @@ async def validate_api_key(api_key_header_value: str = Security(api_key_header))
         raise HTTPException(status_code=401, detail="Invalid API key")
     return username
 
-def is_admin(admin_key: str):
-    return ADMIN_API_KEY and admin_key == ADMIN_API_KEY
+def is_admin(admin_key: str, admin_email: str | None = None):
+    if not (ADMIN_API_KEY and admin_key == ADMIN_API_KEY):
+        return False
+    # Optional email check against admins table if provided
+    if admin_email:
+        return is_admin_user(admin_email)
+    return True

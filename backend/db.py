@@ -34,6 +34,26 @@ def init_db():
         );
         """
         )
+        # Admins table
+        cx.execute(
+            """
+        CREATE TABLE IF NOT EXISTS admins (
+            email TEXT PRIMARY KEY NOT NULL
+        );
+        """
+        )
+        # Activity log table
+        cx.execute(
+            """
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            username TEXT NOT NULL,
+            action TEXT NOT NULL,
+            details TEXT
+        );
+        """
+        )
         cx.execute(
             """
         CREATE TABLE IF NOT EXISTS jobs (
@@ -52,7 +72,7 @@ def init_db():
         cx.commit()
 
 
-def create_user(username: str) -> str:
+def create_user(username: str, api_key: Optional[str] = None) -> str:
     with _LOCK, _conn() as cx:
         # If user already exists, return the existing api_key (idempotent behavior)
         cur = cx.execute("SELECT api_key FROM users WHERE username=?", (username,))
@@ -60,10 +80,11 @@ def create_user(username: str) -> str:
         if row and row[0]:
             return row[0]
 
-        api_key = secrets.token_urlsafe(32)
-        cx.execute("INSERT INTO users(api_key, username) VALUES(?, ?)", (api_key, username))
+        # Use provided api_key if supplied, otherwise generate one
+        final_key = api_key or secrets.token_urlsafe(32)
+        cx.execute("INSERT INTO users(api_key, username) VALUES(?, ?)", (final_key, username))
         cx.commit()
-        return api_key
+        return final_key
 
 
 def get_username_for_api_key(api_key: str) -> Optional[str]:
@@ -162,6 +183,63 @@ def get_history(username: str) -> List[Dict[str, Any]]:
                 "file_size": r[3] or 0,
                 "prediction": r[4],
                 "created_at": r[5],
+            }
+            for r in rows
+        ]
+
+
+# ----- Admins helpers -----
+def add_admin(email: str):
+    with _LOCK, _conn() as cx:
+        cx.execute("INSERT OR IGNORE INTO admins(email) VALUES(?)", (email,))
+        cx.commit()
+
+
+def remove_admin(email: str):
+    with _LOCK, _conn() as cx:
+        cx.execute("DELETE FROM admins WHERE email=?", (email,))
+        cx.commit()
+
+
+def get_all_admins() -> List[str]:
+    with _LOCK, _conn() as cx:
+        cur = cx.execute("SELECT email FROM admins ORDER BY email ASC")
+        return [r[0] for r in cur.fetchall()]
+
+
+def is_admin_user(email: str) -> bool:
+    with _LOCK, _conn() as cx:
+        cur = cx.execute("SELECT 1 FROM admins WHERE email=?", (email,))
+        return cur.fetchone() is not None
+
+
+# ----- Activity log helpers -----
+def log_activity(username: str, action: str, details: Optional[str] = None):
+    with _LOCK, _conn() as cx:
+        cx.execute(
+            "INSERT INTO activity_log(username, action, details) VALUES(?, ?, ?)",
+            (username, action, details),
+        )
+        cx.commit()
+
+
+def get_activity_log() -> List[Dict[str, Any]]:
+    with _LOCK, _conn() as cx:
+        cur = cx.execute(
+            """
+            SELECT id, timestamp, username, action, details
+            FROM activity_log
+            ORDER BY datetime(timestamp) DESC
+            """
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "id": r[0],
+                "timestamp": r[1],
+                "username": r[2],
+                "action": r[3],
+                "details": r[4],
             }
             for r in rows
         ]

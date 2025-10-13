@@ -7,6 +7,9 @@ from fastapi import (
     HTTPException,
     Query,
     Header,
+    APIRouter,
+    Body,
+    Path,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -14,7 +17,16 @@ from fastapi.openapi.utils import get_openapi
 import secrets
 import os
 
-from backend.db import init_db, create_user, get_user_stats
+from backend.db import (
+    init_db,
+    create_user,
+    get_user_stats,
+    add_admin,
+    remove_admin,
+    get_all_admins,
+    get_activity_log,
+    log_activity,
+)
 from backend.auth import validate_api_key, is_admin, ADMIN_API_KEY
 from backend.models import (
     ScanResponse,
@@ -38,6 +50,15 @@ from backend.service import (
 
 app = FastAPI(title="CipherX APK Security Analysis Backend")
 
+# ----- Admin Router & protection -----
+admin_router = APIRouter(prefix="/admin", tags=["Admin"])
+
+def require_admin(x_admin_key: str = Header(..., alias="X-Admin-Key"), x_admin_email: str = Header(None, alias="X-Admin-Email")) -> str:
+    # Master key must match and if email provided, it must be registered admin
+    if not is_admin(x_admin_key, x_admin_email):
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid admin credentials")
+    return x_admin_email or "admin"
+
 # ----- init DB on startup -----
 init_db()
 
@@ -50,20 +71,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ------------------ Admin ------------------
+# ------------------ Admin (protected) ------------------
 
-@app.post("/admin/create-user", tags=["Admin"])
+@admin_router.get("/admins")
+async def list_admins(_: str = Depends(require_admin)):
+    return {"admins": get_all_admins()}
+
+
+@admin_router.post("/admins")
+async def add_admin_user(payload: dict = Body(...), admin_email: str = Depends(require_admin)):
+    email = (payload.get("email") or "").strip()
+    if not email:
+        raise HTTPException(400, "email is required")
+    add_admin(email)
+    log_activity(admin_email, "ADMIN_ADDED", f"Added admin: {email}")
+    return {"ok": True}
+
+
+@admin_router.delete("/admins/{email}")
+async def delete_admin_user(email: str = Path(...), admin_email: str = Depends(require_admin)):
+    remove_admin(email)
+    log_activity(admin_email, "ADMIN_REMOVED", f"Removed admin: {email}")
+    return {"ok": True}
+
+
+@admin_router.post("/create-user")
 async def create_user_endpoint(
-    username: str,
-    x_admin_key: str = Header(..., alias="X-Admin-Key"),
+    username: str = Query(None),
+    admin_email: str = Depends(require_admin),
+    payload: dict | None = Body(None),
 ):
-    if not is_admin(x_admin_key):
-        raise HTTPException(403, "Forbidden: Invalid admin key")
+    # Support both query param and JSON body
+    new_username = username or ((payload or {}).get("username"))
+    provided_key = (payload or {}).get("api_key")
+    if not new_username:
+        raise HTTPException(400, "username is required")
     try:
-        api_key = create_user(username)
-        return {"username": username, "api_key": api_key}
+        api_key = create_user(new_username, provided_key)
+        log_activity(admin_email, "USER_API_KEY_GENERATED", f"Key for user: {new_username}")
+        return {"username": new_username, "api_key": api_key}
     except ValueError:
         raise HTTPException(400, "Username already exists")
+
+
+@admin_router.get("/activity")
+async def activity(_: str = Depends(require_admin)):
+    return {"items": get_activity_log()}
 
 # ------------------ User ------------------
 
@@ -86,6 +139,12 @@ async def scan_apk(
         "use_gemini": use_gemini,
         "gemini_api_key": gemini_api_key,
     }
+
+    # log activity for user
+    try:
+        log_activity(current_username, "APK_SCAN_STARTED", f"File: {file.filename}")
+    except Exception:
+        pass
 
     job = submit_scan(file, options, current_username)
     # synchronous processing
@@ -194,3 +253,6 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+# Mount admin router
+app.include_router(admin_router)

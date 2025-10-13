@@ -115,6 +115,18 @@ class ApiClient {
     );
   }
 
+  // Admin: Create user with provided API key (POST JSON)
+  Future<Map<String, dynamic>> createUserWithKey({
+    required String username,
+    required String apiKey,
+  }) async {
+    return await postJson(
+      ApiEndpoints.createUser,
+      { 'username': username, 'api_key': apiKey },
+      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY},
+    );
+  }
+
   // Authentication: Login with API key
   Future<bool> authenticate(String apiKey) async {
     try {

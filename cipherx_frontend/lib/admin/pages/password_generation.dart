@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/admin_store.dart';
+import '../../services/api_client.dart';
 
 class PasswordGenerationPage extends StatefulWidget {
   const PasswordGenerationPage({Key? key}) : super(key: key);
@@ -26,19 +27,26 @@ class _PasswordGenerationPageState extends State<PasswordGenerationPage> {
   String _generateStrongPassword() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#%&*!?_';
     final rnd = Random.secure();
-    return List.generate(12, (_) => chars[rnd.nextInt(chars.length)]).join();
+    return List.generate(16, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
 
-  void _generateAndStore(AdminStore store) {
+  Future<void> _generateAndStore(AdminStore store) async {
     final username = usernameCtrl.text.trim();
     if (username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a username/email')));
       return;
     }
     final pwd = _generateStrongPassword();
-    setState(() => lastPassword = pwd);
-    store.addGeneratedPassword(username, pwd);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password generated and stored')));
+    try {
+      final api = ApiClient();
+      final res = await api.createUserWithKey(username: username, apiKey: pwd);
+      final returnedKey = (res['api_key'] as String?) ?? pwd;
+      setState(() => lastPassword = returnedKey);
+      store.addGeneratedPassword(username, returnedKey);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key generated and saved to backend')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   @override
@@ -89,7 +97,7 @@ class _PasswordGenerationPageState extends State<PasswordGenerationPage> {
                         child: ElevatedButton.icon(
                           onPressed: () => _generateAndStore(store),
                           icon: const Icon(Icons.bolt),
-                          label: const Text('Generate'),
+                          label: const Text('Generate & Create'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -99,7 +107,7 @@ class _PasswordGenerationPageState extends State<PasswordGenerationPage> {
                       ),
                       if (lastPassword.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        SelectableText('Last Generated: $lastPassword', style: const TextStyle(color: Colors.cyanAccent)),
+                        SelectableText('Generated API Key: $lastPassword', style: const TextStyle(color: Colors.cyanAccent)),
                       ],
                     ],
                   ),
