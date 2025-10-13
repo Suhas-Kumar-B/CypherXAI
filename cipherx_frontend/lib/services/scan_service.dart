@@ -9,7 +9,7 @@ class ScanService extends ChangeNotifier {
   factory ScanService() => _instance;
   ScanService._internal();
 
-  final ApiClient _apiClient = ApiClient(baseUrl: 'http://127.0.0.1:8000');
+  final ApiClient _apiClient = ApiClient();
 
   List<Analysis> _history = [];
   Analysis? _currentAnalysis;

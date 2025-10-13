@@ -11,6 +11,7 @@ import 'results.dart';
 import '../services/auth_service.dart';
 import '../services/scan_service.dart';
 import '../services/admin_store.dart';
+import '../services/api_client.dart';
 
 class DashboardPage extends StatefulWidget {
   final Analysis? analysis;
@@ -27,6 +28,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool runGemini = false;
   
   final ScanService scanService = ScanService();
+  final ApiClient apiClient = ApiClient();
   String? selectedFilePath;
   bool isUploading = false;
 
@@ -123,6 +125,19 @@ class _DashboardPageState extends State<DashboardPage> {
       return await scanService.loadHistory(apiKey);
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> _loadStats() async {
+    final authService = AuthService();
+    final apiKey = authService.apiKey;
+    
+    if (apiKey == null) return null;
+    
+    try {
+      return await apiClient.getStats(apiKey);
+    } catch (e) {
+      return null;
     }
   }
 
@@ -546,16 +561,22 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(height: 18),
 
-              Row(
-                children: [
-                  Expanded(child: stat('Total Scans', '3', Icons.shield_outlined)),
-                  const SizedBox(width: 12),
-                  Expanded(child: stat('Threats Detected', '1', Icons.warning_amber)),
-                  const SizedBox(width: 12),
-                  Expanded(child: stat('Avg Confidence', '61.0%', Icons.trending_up)),
-                  const SizedBox(width: 12),
-                  Expanded(child: stat('Processing Time', '<30s', Icons.access_time)),
-                ],
+              FutureBuilder<Map<String, dynamic>?>(
+                future: _loadStats(),
+                builder: (context, snapshot) {
+                  final stats = snapshot.data;
+                  return Row(
+                    children: [
+                      Expanded(child: stat('Total Scans', '${stats?['total_scans'] ?? 0}', Icons.shield_outlined)),
+                      const SizedBox(width: 12),
+                      Expanded(child: stat('Threats Detected', '${stats?['threats_detected'] ?? 0}', Icons.warning_amber)),
+                      const SizedBox(width: 12),
+                      Expanded(child: stat('Avg Confidence', '${stats?['avg_confidence']?.toString() ?? '0.0'}%', Icons.trending_up)),
+                      const SizedBox(width: 12),
+                      Expanded(child: stat('Processing Time', stats?['avg_processing_time'] ?? '<30s', Icons.access_time)),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 18),
 

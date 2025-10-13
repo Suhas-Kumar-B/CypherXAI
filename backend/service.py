@@ -4,6 +4,7 @@ import shutil
 import random
 import json
 import sys
+import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional
 from ml_worker.apk_analyzer import analyze_apk, get_vulnerability_explanation
@@ -40,9 +41,10 @@ STORAGE_DIR = Path(__file__).parent.parent / "Storage"
 STORAGE_DIR.mkdir(exist_ok=True)
 
 def _new_job_id(original_filename: str) -> str:
-    base_name = original_filename.rsplit(".", 1)[0].replace(" ", "_")
-    suffix = random.randint(1000, 9999)
-    return f"{base_name}_{suffix}"
+    base_name = original_filename.rsplit(".", 1)[0].replace(" ", "_").replace("-", "_")
+    # Use UUID4 for guaranteed uniqueness
+    unique_id = str(uuid.uuid4())[:8]  # Use first 8 characters for shorter IDs
+    return f"{base_name}_{unique_id}"
 
 def submit_scan(file, options: dict, username: str) -> Dict[str, str]:
     """

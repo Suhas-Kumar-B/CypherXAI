@@ -3,9 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
+import '../constants/api_endpoints.dart';
 
 class ApiClient {
-  ApiClient({required this.baseUrl, this.defaultHeaders = const {}});
+  ApiClient()
+      : baseUrl = const String.fromEnvironment('BASE_URL', defaultValue: 'http://127.0.0.1:8000'),
+        defaultHeaders = const {};
+  
   final String baseUrl;
   final Map<String, String> defaultHeaders;
   
@@ -105,16 +109,16 @@ class ApiClient {
   Future<Map<String, dynamic>> createUser(String username) async {
     // Endpoint expects POST with header X-Admin-Key and query param username
     return await postJson(
-      '/admin/create-user?username=$username',
+      '${ApiEndpoints.createUser}?${ApiEndpoints.usernameParam}=$username',
       {},
-      headers: {'X-Admin-Key': ADMIN_API_KEY},
+      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY},
     );
   }
 
   // Authentication: Login with API key
   Future<bool> authenticate(String apiKey) async {
     try {
-      await getJson('/history', headers: {'Authorization': apiKey});
+      await getJson(ApiEndpoints.history, headers: {ApiEndpoints.authorizationHeader: apiKey});
       return true;
     } catch (_) {
       return false;
@@ -136,47 +140,47 @@ class ApiClient {
     }
 
     final Map<String, String> formData = {
-      if (runPentest != null) 'run_pentest': runPentest.toString(),
-      if (runAnomaly != null) 'run_anomaly': runAnomaly.toString(),
-      if (useGemini) 'use_gemini': useGemini.toString(),
-      if (geminiApiKey != null && geminiApiKey.isNotEmpty) 'gemini_api_key': geminiApiKey,
+      if (runPentest != null) ApiEndpoints.runPentestParam: runPentest.toString(),
+      if (runAnomaly != null) ApiEndpoints.runAnomalyParam: runAnomaly.toString(),
+      if (useGemini) ApiEndpoints.useGeminiParam: useGemini.toString(),
+      if (geminiApiKey != null && geminiApiKey.isNotEmpty) ApiEndpoints.geminiApiKeyParam: geminiApiKey,
     };
 
     return await postFormData(
-      '/scan',
+      ApiEndpoints.scan,
       formData: formData,
       file: file,
       fileField: 'file',
-      headers: {'Authorization': apiKey},
+      headers: {ApiEndpoints.authorizationHeader: apiKey},
     );
   }
 
   // Check job status
   Future<Map<String, dynamic>> getStatus(String jobId, String apiKey) async {
-    return await getJson('/status/$jobId', 
-        headers: {'Authorization': apiKey});
+    return await getJson(ApiEndpoints.status(jobId), 
+        headers: {ApiEndpoints.authorizationHeader: apiKey});
   }
 
   // Get result
   Future<Map<String, dynamic>> getResult(String jobId, String apiKey) async {
-    return await getJson('/result/$jobId', 
-        headers: {'Authorization': apiKey});
+    return await getJson(ApiEndpoints.result(jobId), 
+        headers: {ApiEndpoints.authorizationHeader: apiKey});
   }
 
   // Get history
   Future<List<Map<String, dynamic>>> getHistory(String apiKey) async {
-    final response = await getJson('/history', 
-        headers: {'Authorization': apiKey});
+    final response = await getJson(ApiEndpoints.history, 
+        headers: {ApiEndpoints.authorizationHeader: apiKey});
     return List<Map<String, dynamic>>.from(response['items'] ?? []);
   }
 
   // Download report
   Future<File?> downloadReport(String jobId, String apiKey, String targetPath) async {
     try {
-      final uri = Uri.parse('$baseUrl/download/$jobId');
+      final uri = Uri.parse('$baseUrl${ApiEndpoints.downloadFile(jobId)}');
       final response = await http.get(
         uri,
-        headers: {'Authorization': apiKey},
+        headers: {ApiEndpoints.authorizationHeader: apiKey},
       );
 
       if (response.statusCode == 200) {
@@ -193,12 +197,17 @@ class ApiClient {
   // Get Gemini report
   Future<String?> getGeminiReport(String jobId, String apiKey) async {
     try {
-      final response = await getJson('/gemini/$jobId', 
-          headers: {'Authorization': apiKey});
+      final response = await getJson(ApiEndpoints.gemini(jobId), 
+          headers: {ApiEndpoints.authorizationHeader: apiKey});
       return response['gemini_report'] as String?;
     } catch (e) {
       return null;
     }
+  }
+
+  // Get dashboard statistics
+  Future<Map<String, dynamic>> getStats(String apiKey) async {
+    return await getJson(ApiEndpoints.stats, headers: {ApiEndpoints.authorizationHeader: apiKey});
   }
 }
 

@@ -165,3 +165,46 @@ def get_history(username: str) -> List[Dict[str, Any]]:
             }
             for r in rows
         ]
+
+
+def get_user_stats(username: str) -> Dict[str, Any]:
+    """Get statistics for a user's scans"""
+    with _LOCK, _conn() as cx:
+        # Total scans
+        cur = cx.execute("SELECT COUNT(*) FROM jobs WHERE username=?", (username,))
+        total_scans = cur.fetchone()[0]
+        
+        # Threats detected (malicious predictions)
+        cur = cx.execute(
+            "SELECT COUNT(*) FROM jobs WHERE username=? AND prediction=?", 
+            (username, "malicious")
+        )
+        threats_detected = cur.fetchone()[0]
+        
+        # Average confidence (from completed jobs)
+        cur = cx.execute(
+            """
+            SELECT AVG(CAST(json_extract(result_json, '$.confidence') AS REAL)) 
+            FROM jobs 
+            WHERE username=? AND result_json IS NOT NULL 
+            AND json_extract(result_json, '$.confidence') IS NOT NULL
+            """,
+            (username,)
+        )
+        avg_confidence = cur.fetchone()[0] or 0.0
+        
+        # Average processing time (approximation based on file size)
+        cur = cx.execute(
+            "SELECT AVG(file_size) FROM jobs WHERE username=? AND file_size > 0", 
+            (username,)
+        )
+        avg_file_size = cur.fetchone()[0] or 0
+        # Rough estimate: 1MB = ~1 second processing time
+        avg_processing_time = max(5, min(60, avg_file_size / (1024 * 1024)))
+        
+        return {
+            "total_scans": total_scans,
+            "threats_detected": threats_detected,
+            "avg_confidence": round(avg_confidence, 1),
+            "avg_processing_time": f"{int(avg_processing_time)}s"
+        }

@@ -14,7 +14,7 @@ from fastapi.openapi.utils import get_openapi
 import secrets
 import os
 
-from backend.db import init_db, create_user
+from backend.db import init_db, create_user, get_user_stats
 from backend.auth import validate_api_key, is_admin, ADMIN_API_KEY
 from backend.models import (
     ScanResponse,
@@ -161,6 +161,11 @@ async def download_report(job_id: str, current_username: str = Depends(validate_
     if not path:
         raise HTTPException(404, "Download file not found")
     return FileResponse(str(path), filename=f"{job_id}.json", media_type="application/json")
+
+@app.get("/stats", tags=["User"])
+async def get_stats(current_username: str = Depends(validate_api_key)):
+    """Get dashboard statistics for the authenticated user"""
+    return get_user_stats(current_username)
 
 @app.get("/", tags=["Root"])
 async def root():

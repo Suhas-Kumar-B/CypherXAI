@@ -31,14 +31,21 @@ class AuthService extends ChangeNotifier {
 
   // Admin whitelist (ONLY these can access Admin side)
   static const _admins = <String, String>{
+    'admin@cipherx.com': 'admin123',
+    'testadmin@cipherx.com': 'test123',
     'suhaskumarb748@gmail.com': 'suhas@123',
     'vishnup2603@gmail.com': 'vishnu@123',
     'sanjana@gmail.com': 'sanjana@123',
     'sanjanar.ten@gmail.com': 'CUTIE@1',
   };
 
-  // Single user demo account
-  static const _userCred = {'dummy@gmail.com': 'qwerty123'};
+  // Test user accounts for easy testing
+  static const _userCred = {
+    'test@cipherx.com': 'test123',
+    'user@cipherx.com': 'user123',
+    'demo@cipherx.com': 'demo123',
+    'dummy@gmail.com': 'qwerty123',
+  };
 
   static String displayNameFromEmail(String email) {
     final local = email.split('@').first;
@@ -58,7 +65,7 @@ class AuthService extends ChangeNotifier {
 
   // Initialize with backend API
   Future<void> _setupBackendConnection() async {
-    final apiClient = ApiClient(baseUrl: 'http://127.0.0.1:8000');
+    final apiClient = ApiClient();
     
     try {
       // Always ensure a backend user exists and get an API key for this username
@@ -86,7 +93,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> _validateApiKey(String apiKey) async {
-    final apiClient = ApiClient(baseUrl: 'http://127.0.0.1:8000');
+    final apiClient = ApiClient();
     return await apiClient.authenticate(apiKey);
   }
 
@@ -124,7 +131,7 @@ class AuthService extends ChangeNotifier {
 
   // Direct API key authentication (for backend integration)
   Future<AuthResult> authenticateWithApiKey(String apiKey) async {
-    final apiClient = ApiClient(baseUrl: 'http://127.0.0.1:8000');
+    final apiClient = ApiClient();
     final isValidKey = await _validateApiKey(apiKey);
     
     if (isValidKey) {
