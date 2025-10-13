@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/admin_store.dart';
+import '../../services/api_client.dart';
 
 class CrudUsersPage extends StatefulWidget {
   const CrudUsersPage({Key? key}) : super(key: key);
@@ -13,6 +14,22 @@ class CrudUsersPage extends StatefulWidget {
 class _CrudUsersPageState extends State<CrudUsersPage> {
   final emailCtrl = TextEditingController();
   final nameCtrl = TextEditingController();
+  List<String> admins = [];
+  bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshAdmins();
+  }
+
+  Future<void> _refreshAdmins() async {
+    setState(() => loading = true);
+    try {
+      admins = await ApiClient().getAdmins();
+    } catch (_) {}
+    setState(() => loading = false);
+  }
 
   @override
   void dispose() {
@@ -36,7 +53,7 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
               const Row(children: [
                 Icon(Icons.manage_accounts, color: Colors.cyanAccent),
                 SizedBox(width: 10),
-                Text('CRUD (Users)', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                Text('Manage Admin Users', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 16),
 
@@ -48,7 +65,7 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Add New User', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      const Text('Add Admin Email', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       TextField(
                         controller: emailCtrl,
@@ -67,7 +84,7 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                       TextField(
                         controller: nameCtrl,
                         decoration: InputDecoration(
-                          hintText: 'Display name',
+                          hintText: 'Optional note (ignored)',
                           filled: true,
                           fillColor: const Color(0xFF121A23),
                           border: OutlineInputBorder(
@@ -81,15 +98,20 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                       SizedBox(
                         width: 180,
                         child: ElevatedButton.icon(
-                          onPressed: () {
+                          onPressed: () async {
                             final email = emailCtrl.text.trim();
-                            final name  = nameCtrl.text.trim().isEmpty ? email : nameCtrl.text.trim();
                             if (email.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email required')));
                               return;
                             }
-                            store.addUser(email, name);
-                            emailCtrl.clear(); nameCtrl.clear();
+                            try {
+                              await ApiClient().addAdminEmail(email);
+                              await _refreshAdmins();
+                              emailCtrl.clear(); nameCtrl.clear();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admin added')));
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
                           },
                           icon: const Icon(Icons.add),
                           label: const Text('Add User'),
@@ -113,28 +135,31 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: ListView.separated(
-                      itemCount: store.users.length + 1,
+                      itemCount: (admins.length) + 1,
                       separatorBuilder: (_, __) => const Divider(color: Colors.white12),
                       itemBuilder: (context, i) {
                         if (i == 0) {
-                          return _row(isHeader: true, cells: const ['Email', 'Name', 'Status', 'Actions']);
+                          return _row(isHeader: true, cells: const ['Admin Email', '—', '—', 'Actions']);
                         }
-                        final u = store.users[i - 1];
+                        final email = admins[i - 1];
                         return _row(cells: [
-                          u.email,
-                          u.displayName,
-                          u.active ? 'ACTIVE' : 'DISABLED',
+                          email,
+                          '—',
+                          '—',
                           '—',
                         ], builders: [
                           (ctx) => Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               TextButton(
-                                onPressed: () => store.updateUser(u.email, active: !u.active),
-                                child: Text(u.active ? 'Disable' : 'Enable', style: const TextStyle(color: Colors.cyanAccent)),
-                              ),
-                              TextButton(
-                                onPressed: () => store.removeUser(u.email),
+                                onPressed: () async {
+                                  try {
+                                    await ApiClient().removeAdminEmail(email);
+                                    await _refreshAdmins();
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                                  }
+                                },
                                 child: const Text('Remove', style: TextStyle(color: Colors.redAccent)),
                               ),
                             ],

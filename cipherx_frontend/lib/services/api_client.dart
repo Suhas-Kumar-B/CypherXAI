@@ -221,6 +221,31 @@ class ApiClient {
   Future<Map<String, dynamic>> getStats(String apiKey) async {
     return await getJson(ApiEndpoints.stats, headers: {ApiEndpoints.authorizationHeader: apiKey});
   }
+
+  // ----- Admin endpoints -----
+  Future<List<String>> getAdmins() async {
+    final res = await getJson('/admin/admins', headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    final list = (res['admins'] as List?) ?? [];
+    return List<String>.from(list);
+  }
+
+  Future<void> addAdminEmail(String email) async {
+    await postJson('/admin/admins', { 'email': email }, headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+  }
+
+  Future<void> removeAdminEmail(String email) async {
+    // Simple DELETE via http since postJson is JSON-only; we can extend if needed
+    final uri = Uri.parse('$baseUrl/admin/admins/$email');
+    final resp = await http.delete(uri, headers: _getHeaders(additionalHeaders: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY}));
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw ApiException('Failed to remove admin: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getActivityLog() async {
+    final res = await getJson('/admin/activity', headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    return List<Map<String, dynamic>>.from((res['items'] as List?) ?? []);
+  }
 }
 
 class ApiException implements Exception {

@@ -29,7 +29,7 @@ class _AdminScaffoldState extends State<_AdminScaffold> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    const pages = [ClientActivityPage(), PasswordGenerationPage(), CrudUsersPage()];
+    const pages = [CrudUsersPage(), PasswordGenerationPage(), ClientActivityPage()];
 
     return Scaffold(
       backgroundColor: themeProvider.isDarkMode ? const Color(0xFF0B0F14) : Colors.grey[50],
@@ -63,9 +63,9 @@ class _AdminScaffoldState extends State<_AdminScaffold> {
                   ]),
                   const SizedBox(height: 18),
 
-                  SidebarMenuItem(icon: Icons.history,  title: 'Client Activity',     selected: page == 0, onTap: () => setState(() => page = 0)),
-                  SidebarMenuItem(icon: Icons.password, title: 'Password Generation',  selected: page == 1, onTap: () => setState(() => page = 1)),
-                  SidebarMenuItem(icon: Icons.manage_accounts, title: 'CRUD',          selected: page == 2, onTap: () => setState(() => page = 2)),
+                  SidebarMenuItem(icon: Icons.manage_accounts, title: 'Manage Admins', selected: page == 0, onTap: () => setState(() => page = 0)),
+                  SidebarMenuItem(icon: Icons.password, title: 'Generate User API Key',selected: page == 1, onTap: () => setState(() => page = 1)),
+                  SidebarMenuItem(icon: Icons.history,  title: 'Client Activity',      selected: page == 2, onTap: () => setState(() => page = 2)),
                   const Spacer(),
 
                   // Only Logout (theme toggle removed as requested)

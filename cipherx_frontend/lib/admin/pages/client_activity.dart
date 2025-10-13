@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/admin_store.dart';
+import '../../services/api_client.dart';
 
 class ClientActivityPage extends StatefulWidget {
   const ClientActivityPage({Key? key}) : super(key: key);
@@ -11,6 +12,22 @@ class ClientActivityPage extends StatefulWidget {
 }
 
 class _ClientActivityPageState extends State<ClientActivityPage> {
+  List<Map<String, dynamic>> activity = [];
+  bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => loading = true);
+    try {
+      activity = await ApiClient().getActivityLog();
+    } catch (_) {}
+    setState(() => loading = false);
+  }
   @override
   Widget build(BuildContext context) {
     final store = Provider.of<AdminStore>(context);
@@ -54,13 +71,13 @@ class _ClientActivityPageState extends State<ClientActivityPage> {
 
               Row(
                 children: [
-                  Expanded(child: stat('Total Events', '${store.activity.length}')),
+                  Expanded(child: stat('Total Events', '${activity.length}')),
                   const SizedBox(width: 12),
-                  Expanded(child: stat('Passwords Generated', '${store.generated.length}')),
+                  const Expanded(child: SizedBox()),
                   const SizedBox(width: 12),
-                  Expanded(child: stat('Registered Users', '${store.users.length}')),
+                  const Expanded(child: SizedBox()),
                   const SizedBox(width: 12),
-                  Expanded(child: stat('Active Users', '${store.users.where((u) => u.active).length}')),
+                  const Expanded(child: SizedBox()),
                 ],
               ),
               const SizedBox(height: 16),
@@ -72,30 +89,25 @@ class _ClientActivityPageState extends State<ClientActivityPage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: ListView.separated(
-                      itemCount: store.activity.length + 1,
+                      itemCount: activity.length + 1,
                       separatorBuilder: (_, __) => const Divider(color: Colors.white12),
                       itemBuilder: (context, i) {
                         if (i == 0) {
-                          return _row(isHeader: true, cells: const ['Actor', 'Action', 'Confidence', 'Status', 'Size', 'Date', 'Actions']);
+                          return _row(isHeader: true, cells: const ['Timestamp', 'Username', 'Action', 'Details']);
                         }
-                        final r = store.activity[i - 1];
-                        final color = r.status.contains('LOGIN')
-                            ? Colors.greenAccent
-                            : r.status.contains('LOGOUT')
-                                ? Colors.orangeAccent
-                                : Colors.cyanAccent;
+                        final r = activity[i - 1];
+                        final ts = (r['timestamp'] ?? '').toString();
+                        final user = (r['username'] ?? '').toString();
+                        final action = (r['action'] ?? '').toString();
+                        final details = (r['details'] ?? '').toString();
+                        final color = action.contains('ADMIN') ? Colors.cyanAccent : Colors.greenAccent;
                         return _row(cells: [
-                          r.actorEmail,
+                          ts,
+                          user,
                           null,
-                          r.confidence == 0 ? '-' : '${r.confidence}%',
-                          null,
-                          r.size,
-                          r.date,
-                          null,
+                          details.isEmpty ? '—' : details,
                         ], builders: [
-                          (ctx) => pill(r.status, color),
-                          (ctx) => pill('ok', Colors.greenAccent),
-                          (ctx) => const SizedBox(),
+                          (ctx) => pill(action, color),
                         ]);
                       },
                     ),
