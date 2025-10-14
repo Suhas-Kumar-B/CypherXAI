@@ -17,6 +17,8 @@ dependencies:
   url_launcher: ^6.2.5      # NEW: opens Email / LinkedIn links in About
   file_picker: ^6.1.1      # For APK file uploads
   dio: ^5.4.3              # For file uploads and FormData
+  path_provider: ^2.1.1    # For getting Downloads directory
+  universal_html: ^2.2.4   # For web download support
 
 dev_dependencies:
   flutter_test:

@@ -9,6 +9,7 @@ import '../models/analysis.dart';
 import '../services/scan_service.dart';
 import '../services/auth_service.dart';
 import '../theme_provider.dart';
+import '../utils/download_helper.dart';
 
 class ResultsPage extends StatefulWidget {
   final Analysis? analysis;
@@ -69,45 +70,51 @@ class _ResultsPageState extends State<ResultsPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Colors.cyanAccent),
-            SizedBox(height: 16),
-            Text('Loading analysis...', style: TextStyle(color: Colors.white70)),
-          ],
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A0E1A),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.cyanAccent),
+              SizedBox(height: 16),
+              Text('Loading analysis...', style: TextStyle(color: Colors.white70)),
+            ],
+          ),
         ),
       );
     }
 
     if (_analysis == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.insert_drive_file_outlined, size: 64, color: Colors.white24),
-            const SizedBox(height: 16),
-            const Text('No analysis available', style: TextStyle(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 8),
-            const Text('Upload an APK from Dashboard', style: TextStyle(color: Colors.white70)),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                try {
-                  context.read<ThemeProvider>().setPage(0);
-                } catch (e) {
-                  // Fallback
-                }
-              },
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Go to Dashboard'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.cyanAccent,
-                foregroundColor: Colors.black,
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A0E1A),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.insert_drive_file_outlined, size: 64, color: Colors.white24),
+              const SizedBox(height: 16),
+              const Text('No analysis available', style: TextStyle(color: Colors.white, fontSize: 18)),
+              const SizedBox(height: 8),
+              const Text('Upload an APK from Dashboard', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  try {
+                    context.read<ThemeProvider>().setPage(0);
+                  } catch (e) {
+                    // Fallback
+                  }
+                },
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Go to Dashboard'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent,
+                  foregroundColor: Colors.black,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -144,12 +151,18 @@ class _ResultsPageState extends State<ResultsPage> {
       );
     }
 
-    return DefaultTabController(
-      length: 4,
-      child: Column(
-        children: [
-          // Header
-          Padding(
+    // Determine tab count based on whether Gemini report exists
+    final hasGemini = a.geminiReport != null && a.geminiReport!.isNotEmpty;
+    final tabCount = hasGemini ? 5 : 4;
+    
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0E1A),
+      body: DefaultTabController(
+        length: tabCount,
+        child: Column(
+          children: [
+            // Header
+            Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
             child: Row(
               children: [
@@ -206,14 +219,15 @@ class _ResultsPageState extends State<ResultsPage> {
                 color: const Color(0xFF0F1620),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const TabBar(
+              child: TabBar(
                 isScrollable: true,
                 indicatorColor: Colors.cyanAccent,
                 tabs: [
-                  Tab(icon: Icon(Icons.insert_drive_file_outlined), text: 'Overview'),
-                  Tab(icon: Icon(Icons.shield_outlined), text: 'Pentesting Results'),
-                  Tab(icon: Icon(Icons.bolt_outlined), text: 'Anomaly Analysis'),
-                  Tab(icon: Icon(Icons.description_outlined), text: 'Raw Data'),
+                  const Tab(icon: Icon(Icons.insert_drive_file_outlined), text: 'Overview'),
+                  const Tab(icon: Icon(Icons.shield_outlined), text: 'Pentesting Results'),
+                  const Tab(icon: Icon(Icons.bolt_outlined), text: 'Anomaly Analysis'),
+                  if (hasGemini) const Tab(icon: Icon(Icons.auto_awesome), text: 'AI Report'),
+                  const Tab(icon: Icon(Icons.description_outlined), text: 'Raw Data'),
                 ],
               ),
             ),
@@ -227,11 +241,13 @@ class _ResultsPageState extends State<ResultsPage> {
                 _OverviewTab(analysis: a),
                 _PentestTab(analysis: a),
                 _AnomalyTab(analysis: a),
+                if (hasGemini) _GeminiTab(analysis: a),
                 _RawTab(analysis: a),
               ],
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -297,42 +313,55 @@ class _OverviewTab extends StatelessWidget {
                     width: 220,
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        if (analysis.id != null) {
-                          try {
-                            final authService = context.read<AuthService>();
-                            final scanService = context.read<ScanService>();
-                            final apiKey = authService.apiKey;
-                            
-                            if (apiKey != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Downloading report...')),
-                              );
-                              
-                              // Download the report
-                              final file = await scanService.downloadReport(
-                                analysis.id!,
-                                apiKey,
-                                'downloads/${analysis.fileName}_report.json',
-                              );
-                              
-                              if (file != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Report downloaded: ${file.path}')),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Failed to download report')),
-                                );
-                              }
-                            }
-                          } catch (e) {
+                        try {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Preparing download...')),
+                          );
+                          
+                          // Prepare report data
+                          final reportData = analysis.fullResult ?? {
+                            'file_name': analysis.fileName,
+                            'file_size': analysis.fileSize,
+                            'status': analysis.status,
+                            'prediction': analysis.prediction,
+                            'confidence': analysis.confidence,
+                            'anomaly_score': analysis.anomalyScore,
+                            'pentest_findings': analysis.pentestFindings.map((f) => {
+                              'id': f.id,
+                              'title': f.title,
+                              'severity': f.severity,
+                              'evidence': f.evidence,
+                              'recommendation': f.recommendation,
+                            }).toList(),
+                            'anomaly_details': analysis.anomalyDetails != null ? {
+                              'uncertainty': analysis.anomalyDetails!.uncertainty,
+                              'vote_std': analysis.anomalyDetails!.voteStd,
+                              'novelty': analysis.anomalyDetails!.novelty,
+                              'unseen_feature_count': analysis.anomalyDetails!.unseenFeatureCount,
+                              'total_feature_count': analysis.anomalyDetails!.totalFeatureCount,
+                            } : null,
+                            'date_time': analysis.dateTime,
+                          };
+                          
+                          // Download as JSON
+                          final fileName = '${analysis.fileName.replaceAll('.apk', '')}_report';
+                          final result = await DownloadHelper.downloadJson(
+                            jsonData: reportData,
+                            fileName: fileName,
+                          );
+                          
+                          if (result != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
+                              SnackBar(content: Text('Report saved: $result')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Failed to download report')),
                             );
                           }
-                        } else {
+                        } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('No report ID available')),
+                            SnackBar(content: Text('Error: $e')),
                           );
                         }
                       },
@@ -396,6 +425,59 @@ class _AnomalyTab extends StatelessWidget {
               score: analysis.anomalyScore ?? 0.0,
               details: analysis.anomalyDetails),
         ],
+      ),
+    );
+  }
+}
+
+class _GeminiTab extends StatelessWidget {
+  const _GeminiTab({Key? key, required this.analysis}) : super(key: key);
+  final Analysis analysis;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = analysis.geminiReport ?? '';
+    
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        color: const Color(0xFF0F1620),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(18.0),
+          child: ListView(
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome, color: Colors.purpleAccent),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'AI-Powered Security Analysis',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Generated by Google Gemini AI',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const Divider(color: Colors.white12, height: 32),
+              SelectableText(
+                report,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

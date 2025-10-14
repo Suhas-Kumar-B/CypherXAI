@@ -145,6 +145,31 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<Analysis?> _getLatestAnalysis() async {
+    // First check if widget has analysis
+    if (widget.analysis != null) {
+      return widget.analysis;
+    }
+    
+    // Otherwise, get the most recent from history
+    final authService = AuthService();
+    final apiKey = authService.apiKey;
+    
+    if (apiKey == null) return null;
+    
+    try {
+      final history = await scanService.loadHistory(apiKey);
+      if (history.isNotEmpty) {
+        // Return the first (most recent) analysis
+        return history.first;
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+    
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     const cardBg = Color(0xFF0F1620);
@@ -500,25 +525,43 @@ class _DashboardPageState extends State<DashboardPage> {
                 onPressed: () async {
                   final authService = AuthService();
                   final apiKey = authService.apiKey;
-                  if (apiKey == null) return;
-                  // If we have a current analysis, open Results with it
-                  if (scanService.currentAnalysis != null) {
+                  if (apiKey == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Not authenticated')),
+                    );
+                    return;
+                  }
+                  
+                  // Show loading indicator
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Loading analysis...')),
+                  );
+                  
+                  // Always fetch the latest analysis
+                  Analysis? analysisToShow = a;
+                  
+                  // If we have an ID, fetch full details
+                  if (a.id != null) {
+                    final fullAnalysis = await scanService.fetchResultByJobId(
+                      apiKey: apiKey,
+                      jobId: a.id!,
+                    );
+                    if (fullAnalysis != null) {
+                      analysisToShow = fullAnalysis;
+                    }
+                  }
+                  
+                  // Navigate to results page
+                  if (analysisToShow != null) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => ResultsPage(analysis: scanService.currentAnalysis!),
+                        builder: (_) => ResultsPage(analysis: analysisToShow),
                       ),
                     );
-                  } else if (scanService.isScanning == false && scanService.history.isNotEmpty) {
-                    // Fallback: try last job from history
-                    final last = scanService.history.first;
-                    if (last.id != null) {
-                      final a = await scanService.fetchResultByJobId(apiKey: apiKey, jobId: last.id!);
-                      if (a != null) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ResultsPage(analysis: a)),
-                        );
-                      }
-                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to load analysis details')),
+                    );
                   }
                 },
                 icon: const Icon(Icons.open_in_new, color: Colors.cyanAccent),
@@ -594,7 +637,16 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(height: 18),
 
-              if (widget.analysis != null) latestAnalysisCard(widget.analysis!),
+              // Always show latest analysis - either from widget or from history
+              FutureBuilder<Analysis?>(
+                future: _getLatestAnalysis(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data != null) {
+                    return latestAnalysisCard(snapshot.data!);
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
         );

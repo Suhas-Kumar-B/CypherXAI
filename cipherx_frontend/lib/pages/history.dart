@@ -6,6 +6,7 @@ import '../models/analysis.dart';
 import '../services/scan_service.dart';
 import '../services/auth_service.dart';
 import '../theme_provider.dart';
+import '../utils/download_helper.dart';
 import 'results.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -243,42 +244,107 @@ class _HistoryPageState extends State<HistoryPage> {
                                   // Status pill
                                   (ctx) => _getStatusPill(analysis.status),
                                   // Actions
-                                  (ctx) => IconButton(
-                                        icon: const Icon(Icons.open_in_new, color: Colors.cyanAccent),
-                                        onPressed: () async {
-                                          // Fetch full analysis and navigate to results
-                                          if (analysis.id != null) {
-                                            final authService = context.read<AuthService>();
-                                            final scanService = context.read<ScanService>();
-                                            final apiKey = authService.apiKey;
-                                            
-                                            if (apiKey != null) {
-                                              // Show loading
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Loading analysis...')),
-                                              );
-                                              
-                                              // Fetch full details
-                                              final fullAnalysis = await scanService.fetchResultByJobId(
-                                                apiKey: apiKey,
-                                                jobId: analysis.id!,
-                                              );
-                                              
-                                              if (fullAnalysis != null) {
-                                                // Navigate to results page
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (_) => ResultsPage(analysis: fullAnalysis),
-                                                  ),
-                                                );
-                                              } else {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('Failed to load analysis details')),
-                                                );
+                                  (ctx) => Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.open_in_new, color: Colors.cyanAccent),
+                                            tooltip: 'View Details',
+                                            onPressed: () async {
+                                              // Fetch full analysis and navigate to results
+                                              if (analysis.id != null) {
+                                                final authService = context.read<AuthService>();
+                                                final scanService = context.read<ScanService>();
+                                                final apiKey = authService.apiKey;
+                                                
+                                                if (apiKey != null) {
+                                                  // Show loading
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Loading analysis...')),
+                                                  );
+                                                  
+                                                  // Fetch full details
+                                                  final fullAnalysis = await scanService.fetchResultByJobId(
+                                                    apiKey: apiKey,
+                                                    jobId: analysis.id!,
+                                                  );
+                                                  
+                                                  if (fullAnalysis != null) {
+                                                    // Navigate to results page
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (_) => ResultsPage(analysis: fullAnalysis),
+                                                      ),
+                                                    );
+                                                  } else {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(content: Text('Failed to load analysis details')),
+                                                    );
+                                                  }
+                                                }
                                               }
-                                            }
-                                          }
-                                        },
+                                            },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.download, color: Colors.greenAccent),
+                                            tooltip: 'Download Report',
+                                            onPressed: () async {
+                                              if (analysis.id != null) {
+                                                try {
+                                                  final authService = context.read<AuthService>();
+                                                  final scanService = context.read<ScanService>();
+                                                  final apiKey = authService.apiKey;
+                                                  
+                                                  if (apiKey != null) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(content: Text('Preparing download...')),
+                                                    );
+                                                    
+                                                    // Fetch full analysis data
+                                                    final fullAnalysis = await scanService.fetchResultByJobId(
+                                                      apiKey: apiKey,
+                                                      jobId: analysis.id!,
+                                                    );
+                                                    
+                                                    if (fullAnalysis != null) {
+                                                      // Prepare report data
+                                                      final reportData = fullAnalysis.fullResult ?? {
+                                                        'file_name': fullAnalysis.fileName,
+                                                        'file_size': fullAnalysis.fileSize,
+                                                        'status': fullAnalysis.status,
+                                                        'prediction': fullAnalysis.prediction,
+                                                        'confidence': fullAnalysis.confidence,
+                                                        'anomaly_score': fullAnalysis.anomalyScore,
+                                                        'date_time': fullAnalysis.dateTime,
+                                                      };
+                                                      
+                                                      // Download as JSON
+                                                      final fileName = '${analysis.fileName.replaceAll('.apk', '')}_report';
+                                                      final result = await DownloadHelper.downloadJson(
+                                                        jsonData: reportData,
+                                                        fileName: fileName,
+                                                      );
+                                                      
+                                                      if (result != null) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text('Report saved: $result')),
+                                                        );
+                                                      } else {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(content: Text('Failed to download')),
+                                                        );
+                                                      }
+                                                    }
+                                                  }
+                                                } catch (e) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Error: $e')),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ),
                                 ]
                               );

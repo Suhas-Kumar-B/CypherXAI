@@ -2,8 +2,7 @@
 class PentestFinding {
   final String id;
   final String title;
-  final String severity; // high | medium | low
-  final String summary;
+  final String severity; // High | Medium | Low | Info (matches backend exactly)
   final List<String> evidence;
   final String recommendation;
 
@@ -11,7 +10,6 @@ class PentestFinding {
     required this.id,
     required this.title,
     required this.severity,
-    required this.summary,
     required this.evidence,
     required this.recommendation,
   });
@@ -19,37 +17,42 @@ class PentestFinding {
   factory PentestFinding.fromJson(Map<String, dynamic> json) => PentestFinding(
         id: json['id'] ?? '',
         title: json['title'] ?? '',
-        severity: json['severity'] ?? 'info',
-        summary: json['summary'] ?? '',
+        severity: json['severity'] ?? 'Info',
         evidence: List<String>.from(json['evidence'] ?? []),
         recommendation: json['recommendation'] ?? '',
       );
 }
 
 class AnomalyDetails {
+  final double score;
+  final String level; // High | Medium | Low
   final double uncertainty;
   final double voteStd;
   final double novelty;
   final int unseenFeatureCount;
   final int totalFeatureCount;
-  final List<String> topFeatures;
+  final String? notes;
 
   AnomalyDetails({
+    required this.score,
+    required this.level,
     required this.uncertainty,
     required this.voteStd,
     required this.novelty,
     required this.unseenFeatureCount,
     required this.totalFeatureCount,
-    required this.topFeatures,
+    this.notes,
   });
 
   factory AnomalyDetails.fromJson(Map<String, dynamic> json) => AnomalyDetails(
+        score: (json['score'] ?? 0).toDouble(),
+        level: json['level'] ?? 'Low',
         uncertainty: (json['uncertainty'] ?? 0).toDouble(),
         voteStd: (json['vote_std'] ?? 0).toDouble(),
         novelty: (json['novelty'] ?? 0).toDouble(),
         unseenFeatureCount: json['unseen_feature_count'] ?? 0,
         totalFeatureCount: json['total_feature_count'] ?? 0,
-        topFeatures: List<String>.from(json['top_features'] ?? []),
+        notes: json['notes'],
       );
 }
 

@@ -10,31 +10,34 @@ class AnomalyGauge extends StatelessWidget {
   const AnomalyGauge({Key? key, required this.score, this.details})
       : super(key: key);
 
-  Map<String, dynamic> getScoreLevel(double s) {
-    if (s >= 0.7) {
-      return {
-        'level': 'High',
-        'color': Colors.redAccent,
-        'bg': Colors.redAccent.withOpacity(0.14)
-      };
+  Map<String, dynamic> getScoreLevelInfo(String level) {
+    switch (level) {
+      case 'High':
+        return {
+          'level': 'High',
+          'color': Colors.redAccent,
+          'bg': Colors.redAccent.withOpacity(0.14)
+        };
+      case 'Medium':
+        return {
+          'level': 'Medium',
+          'color': Colors.orangeAccent,
+          'bg': Colors.orangeAccent.withOpacity(0.14)
+        };
+      default:
+        return {
+          'level': 'Low',
+          'color': Colors.greenAccent,
+          'bg': Colors.greenAccent.withOpacity(0.14)
+        };
     }
-    if (s >= 0.4) {
-      return {
-        'level': 'Medium',
-        'color': Colors.orangeAccent,
-        'bg': Colors.orangeAccent.withOpacity(0.14)
-      };
-    }
-    return {
-      'level': 'Low',
-      'color': Colors.greenAccent,
-      'bg': Colors.greenAccent.withOpacity(0.14)
-    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final scoreInfo = getScoreLevel(score);
+    // Use level from details if available, otherwise derive from score
+    final level = details?.level ?? (score >= 0.7 ? 'High' : score >= 0.4 ? 'Medium' : 'Low');
+    final scoreInfo = getScoreLevelInfo(level);
     const cardBg = Color(0xFF0F1620);
 
     return Column(
@@ -122,9 +125,6 @@ class AnomalyGauge extends StatelessWidget {
               ),
             ],
           ),
-          if (details!.topFeatures.isNotEmpty) const SizedBox(height: 16),
-          if (details!.topFeatures.isNotEmpty)
-            _chipsCard(details!.topFeatures),
         ],
       ],
     );
@@ -199,34 +199,6 @@ class AnomalyGauge extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  static Widget _chipsCard(List<String> features) {
-    return Card(
-      color: const Color(0xFF0F1620),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: features
-              .map(
-                (f) => Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                  ),
-                  child: Text(f, style: const TextStyle(color: Colors.orange)),
-                ),
-              )
-              .toList(),
         ),
       ),
     );

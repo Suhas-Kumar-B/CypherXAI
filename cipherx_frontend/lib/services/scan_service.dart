@@ -140,9 +140,11 @@ class ScanService extends ChangeNotifier {
 
         if (status == 'done' || status == 'failed') {
           if (status == 'done') {
-            // Get full results
-            final resultResponse = await _apiClient.getResult(jobId, apiKey);
-            return _parseAnalysisFromResult(resultResponse);
+            // Get full results (including Gemini report if available)
+            final analysis = await fetchResultByJobId(apiKey: apiKey, jobId: jobId);
+            _isScanning = false;
+            notifyListeners();
+            return analysis;
           } else {
             // Scan failed
             _isScanning = false;
@@ -192,7 +194,7 @@ class ScanService extends ChangeNotifier {
       anomalyScore: anomalyScore,
       pentestFindings: _parsePentestFindings(resultData),
       anomalyDetails: _parseAnomalyDetails(resultData),
-      geminiReport: resultData['gemini_report']?.toString(),
+      geminiReport: null, // Fetched separately via getGeminiReport
       fullResult: resultData,
       dateTime: DateTime.now().toString(),
       id: jobId ?? _currentJobId,
@@ -203,7 +205,41 @@ class ScanService extends ChangeNotifier {
   Future<Analysis?> fetchResultByJobId({required String apiKey, required String jobId}) async {
     try {
       final resultResponse = await _apiClient.getResult(jobId, apiKey);
-      final analysis = _parseAnalysisFromResult(resultResponse, jobId: jobId);
+      var analysis = _parseAnalysisFromResult(resultResponse, jobId: jobId);
+      
+      // Always try to fetch Gemini report (backend stores it separately)
+      String? geminiReport;
+      bool hasGemini = false;
+      try {
+        geminiReport = await _apiClient.getGeminiReport(jobId, apiKey);
+        hasGemini = geminiReport != null && geminiReport.isNotEmpty;
+      } catch (e) {
+        if (kDebugMode) {
+          print('No Gemini report available or error fetching: $e');
+        }
+      }
+      
+      // Recreate analysis with Gemini report if available
+      analysis = Analysis(
+        fileName: analysis.fileName,
+        fileSize: analysis.fileSize,
+        fileUrl: analysis.fileUrl,
+        status: analysis.status,
+        prediction: analysis.prediction,
+        confidence: analysis.confidence,
+        anomalyScore: analysis.anomalyScore,
+        pentestEnabled: analysis.pentestFindings.isNotEmpty,
+        anomalyEnabled: analysis.anomalyDetails != null,
+        geminiEnabled: hasGemini,
+        pentestFindings: analysis.pentestFindings,
+        anomalyDetails: analysis.anomalyDetails,
+        geminiReport: geminiReport,
+        fullResult: analysis.fullResult,
+        dateTime: analysis.dateTime,
+        id: analysis.id,
+        downloadUrl: analysis.downloadUrl,
+      );
+      
       _currentAnalysis = analysis;
       notifyListeners();
       return analysis;
@@ -227,10 +263,18 @@ class ScanService extends ChangeNotifier {
     try {
       final anomaly = data['anomaly_detection'] as Map<String, dynamic>?;
       if (anomaly != null) {
-        final components = anomaly['components'] as Map<String, dynamic>?;
-        if (components != null) {
-          return AnomalyDetails.fromJson(components);
-        }
+        // Backend structure: {score, level, components: {...}, notes}
+        final components = anomaly['components'] as Map<String, dynamic>? ?? {};
+        return AnomalyDetails.fromJson({
+          'score': anomaly['score'],
+          'level': anomaly['level'],
+          'uncertainty': components['uncertainty'],
+          'vote_std': components['vote_std'],
+          'novelty': components['novelty'],
+          'unseen_feature_count': components['unseen_feature_count'],
+          'total_feature_count': components['total_feature_count'],
+          'notes': anomaly['notes'],
+        });
       }
       return null;
     } catch (e) {
