@@ -54,6 +54,7 @@ android/.gradle/
 android/app/debug/
 android/app/profile/
 android/app/release/
+android/local.properties
 
 # IDE stuff
 .idea/
@@ -66,11 +67,12 @@ android/app/release/
 # Environment files
 .env
 
-echo "venv/
+# Python virtual environments
+venv/
 backend/venv/
+
+# APK files
 *.apk
+
+# Python compiled files
 *.pyd
-" > .gitignore
-
-
-

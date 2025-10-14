@@ -1,6 +1,7 @@
 // lib/services/scan_service.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'api_client.dart';
 import '../models/analysis.dart';
 
@@ -20,7 +21,60 @@ class ScanService extends ChangeNotifier {
   Analysis? get currentAnalysis => _currentAnalysis;
   bool get isScanning => _isScanning;
 
-  // Start a new scan
+  // Start a new scan with PlatformFile (web-compatible)
+  Future<Analysis?> startScanWithFile({
+    required String apiKey,
+    required PlatformFile file,
+    bool runPentest = true,
+    bool runAnomaly = true,
+    bool useGemini = false,
+    String? geminiApiKey,
+  }) async {
+    try {
+      _isScanning = true;
+      notifyListeners();
+
+      final response = await _apiClient.scanApkWithFile(
+        apiKey: apiKey,
+        file: file,
+        runPentest: runPentest,
+        runAnomaly: runAnomaly,
+        useGemini: useGemini,
+        geminiApiKey: geminiApiKey,
+      );
+
+      _currentJobId = response['job_id'] as String?;
+      
+      if (_currentJobId != null) {
+        // Create the analysis object with initial data
+        final analysis = Analysis(
+          fileName: file.name,
+          fileSize: file.size,
+          status: response['status'] ?? 'processing',
+          pentestEnabled: runPentest,
+          anomalyEnabled: runAnomaly,
+          geminiEnabled: useGemini,
+        );
+        
+        _currentAnalysis = analysis;
+        notifyListeners();
+
+        // Poll for results
+        return await _pollForResults(apiKey, _currentJobId!);
+      }
+
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Scan error: $e');
+      }
+      _isScanning = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  // Start a new scan (legacy method for backward compatibility)
   Future<Analysis?> startScan({
     required String apiKey,
     required String filePath,
@@ -173,10 +227,16 @@ class ScanService extends ChangeNotifier {
     try {
       final anomaly = data['anomaly_detection'] as Map<String, dynamic>?;
       if (anomaly != null) {
-        return AnomalyDetails.fromJson(anomaly);
+        final components = anomaly['components'] as Map<String, dynamic>?;
+        if (components != null) {
+          return AnomalyDetails.fromJson(components);
+        }
       }
       return null;
     } catch (e) {
+      if (kDebugMode) {
+        print('Error parsing anomaly details: $e');
+      }
       return null;
     }
   }
@@ -186,11 +246,19 @@ class ScanService extends ChangeNotifier {
     try {
       final historyData = await _apiClient.getHistory(apiKey);
       _history = historyData.map((item) {
+        // Parse confidence if available
+        double? confidence;
+        final confValue = item['confidence'] ?? item['confidence_score'];
+        if (confValue != null && confValue is num) {
+          confidence = confValue.toDouble();
+        }
+        
         return Analysis(
           fileName: (item['name'] ?? item['app_name'] ?? 'Unknown').toString(),
           fileSize: (item['file_size'] ?? 0) as int,
           status: _mapStatus(item['status']),
           prediction: item['prediction']?.toString(),
+          confidence: confidence,
           dateTime: item['date_time']?.toString() ?? item['created_at']?.toString(),
           id: item['id']?.toString() ?? item['job_id']?.toString(),
           downloadUrl: item['download']?.toString() ?? (item['job_id'] != null ? '/download/${item['job_id']}' : null),
@@ -212,8 +280,11 @@ class ScanService extends ChangeNotifier {
     final statusStr = status.toString().toLowerCase();
     switch (statusStr) {
       case 'processing':
+        return 'processing';
       case 'done':
-        return statusStr;
+        return 'completed';  // Map 'done' to 'completed' for display
+      case 'completed':
+        return 'completed';
       case 'failed':
       case 'not_found':
         return 'failed';

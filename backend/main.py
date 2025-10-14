@@ -26,6 +26,8 @@ from backend.db import (
     get_all_admins,
     get_activity_log,
     log_activity,
+    get_user_by_credentials,
+    get_user_role,
 )
 from backend.auth import validate_api_key, is_admin, ADMIN_API_KEY
 from backend.models import (
@@ -37,6 +39,8 @@ from backend.models import (
     GeminiReport,
     JobHistory,
     JobHistoryItem,
+    LoginRequest,
+    LoginResponse,
 )
 from backend.service import (
     submit_scan,
@@ -229,6 +233,32 @@ async def get_stats(current_username: str = Depends(validate_api_key)):
 @app.get("/", tags=["Root"])
 async def root():
     return {"message": "CipherX backend is up and running"}
+
+@app.post("/login", response_model=LoginResponse, tags=["Auth"])
+async def login(credentials: LoginRequest):
+    """
+    Authenticate user with username and API key.
+    Returns user role on success.
+    """
+    user = get_user_by_credentials(credentials.username, credentials.api_key)
+    
+    if not user:
+        return LoginResponse(
+            ok=False,
+            message="Invalid credentials"
+        )
+    
+    # Log successful login
+    try:
+        log_activity(user["username"], "LOGIN", f"User logged in with role: {user['role']}")
+    except Exception:
+        pass
+    
+    return LoginResponse(
+        ok=True,
+        role=user["role"],
+        username=user["username"]
+    )
 
 # ----- Swagger API-key hint -----
 def custom_openapi():

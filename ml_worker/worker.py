@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Now, we can import your provided scripts
 try:
     from apk_feature_extractor import extract_features
-    from apk_analyzer import run_static_analysis, get_vulnerability_explanation
+    from apk_analyzer import run_pentest_checks, get_vulnerability_explanation
 except ImportError as e:
     print(f"Error importing ML scripts: {e}", file=sys.stderr)
     print("Please ensure apk_feature_extractor.py and apk_analyzer.py are in the ml_worker directory.", file=sys.stderr)
@@ -49,6 +49,7 @@ class MLWorker:
         """
         # 1. Model Uncertainty Component (0 to 0.5)
         # Score is higher when confidence is closer to 0.5 (most uncertain)
+        uncertainty = 1.0 - confidence
         uncertainty_component = (1 - abs(confidence - 0.5) * 2) * 0.5
 
         # 2. Feature Novelty Component (0 to 0.3)
@@ -70,11 +71,11 @@ class MLWorker:
         final_score = min(uncertainty_component + novelty_component + severity_component, 1.0)
 
         components = {
-            "uncertainty": float(confidence),
+            "uncertainty": float(uncertainty),
             "vote_std": 0.0,  # Placeholder as RandomForest doesn't directly provide this
-            "novelty": novelty_ratio,
-            "unseen_feature_count": unseen_features_count,
-            "total_feature_count": total_features
+            "novelty": float(novelty_ratio),
+            "unseen_feature_count": int(unseen_features_count),
+            "total_feature_count": int(total_features)
         }
         return final_score, components
 
@@ -104,7 +105,7 @@ class MLWorker:
 
         # 4. Run pentesting heuristics
         print(f"[{job_id}] Running pentesting heuristics...", flush=True)
-        pentest_results = run_static_analysis(str(apk_path), raw_features_dict)
+        pentest_results = run_pentest_checks(raw_features_dict)
 
         # 5. Calculate Anomaly Score
         print(f"[{job_id}] Calculating anomaly score...", flush=True)

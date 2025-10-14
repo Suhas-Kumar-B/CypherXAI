@@ -49,3 +49,13 @@ class GeminiReport(BaseModel):
     job_id: str
     job_name: str
     gemini_report: str
+
+class LoginRequest(BaseModel):
+    username: str
+    api_key: str
+
+class LoginResponse(BaseModel):
+    ok: bool
+    role: Optional[str] = None
+    username: Optional[str] = None
+    message: Optional[str] = None

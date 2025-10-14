@@ -1,8 +1,10 @@
 // lib/services/api_client.dart
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import '../constants/api_endpoints.dart';
 
 class ApiClient {
@@ -137,7 +139,79 @@ class ApiClient {
     }
   }
 
-  // Scan operations
+  // Scan operations with PlatformFile (web-compatible)
+  Future<Map<String, dynamic>> scanApkWithFile({
+    required String apiKey,
+    required PlatformFile file,
+    bool runPentest = true,
+    bool runAnomaly = true,
+    bool useGemini = false,
+    String? geminiApiKey,
+  }) async {
+    try {
+      final dio = Dio();
+      final formData = FormData();
+
+      // Add file - platform-specific handling
+      if (kIsWeb) {
+        // Web: Use bytes
+        if (file.bytes == null) {
+          throw ApiException('File bytes are null. This should not happen with withData: true');
+        }
+        formData.files.add(MapEntry(
+          'file',
+          MultipartFile.fromBytes(
+            file.bytes!,
+            filename: file.name,
+          ),
+        ));
+      } else {
+        // Mobile/Desktop: Use path
+        if (file.path == null) {
+          throw ApiException('File path is null on non-web platform');
+        }
+        formData.files.add(MapEntry(
+          'file',
+          await MultipartFile.fromFile(
+            file.path!,
+            filename: file.name,
+          ),
+        ));
+      }
+
+      // Build URL with query parameters
+      final queryParams = {
+        if (runPentest) ApiEndpoints.runPentestParam: runPentest.toString(),
+        if (runAnomaly) ApiEndpoints.runAnomalyParam: runAnomaly.toString(),
+        if (useGemini) ApiEndpoints.useGeminiParam: useGemini.toString(),
+        if (geminiApiKey != null && geminiApiKey.isNotEmpty) 
+          ApiEndpoints.geminiApiKeyParam: geminiApiKey,
+      };
+
+      final uri = Uri.parse('$baseUrl${ApiEndpoints.scan}').replace(queryParameters: queryParams);
+
+      final response = await dio.post(
+        uri.toString(),
+        data: formData,
+        options: Options(
+          headers: {
+            ApiEndpoints.authorizationHeader: apiKey,
+          },
+          contentType: 'multipart/form-data',
+        ),
+      );
+
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode >= 200 && statusCode < 300) {
+        return response.data as Map<String, dynamic>;
+      }
+      throw ApiException('Scan failed: $statusCode');
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+  }
+
+  // Scan operations (legacy method for backward compatibility)
   Future<Map<String, dynamic>> scanApk({
     required String apiKey,
     required String filePath,

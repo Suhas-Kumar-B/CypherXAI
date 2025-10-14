@@ -3,6 +3,7 @@ import sqlite3
 import secrets
 import json
 import threading
+import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -30,10 +31,16 @@ def init_db():
             """
         CREATE TABLE IF NOT EXISTS users (
             api_key TEXT PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE
+            username TEXT NOT NULL UNIQUE,
+            role TEXT NOT NULL DEFAULT 'user'
         );
         """
         )
+        # Ensure role column exists for existing databases
+        cur = cx.execute("PRAGMA table_info(users)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "role" not in cols:
+            cx.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
         # Admins table
         cx.execute(
             """
@@ -69,10 +76,30 @@ def init_db():
         """
         )
         _ensure_columns(cx)
+        
+        # Seed default users
+        admin_key = os.environ.get("ADMIN_API_KEY", "your-secure-admin-key")
+        
+        # Create admin user if not exists
+        cur = cx.execute("SELECT api_key FROM users WHERE username=?", ("admin@cipherx.com",))
+        if not cur.fetchone():
+            cx.execute(
+                "INSERT INTO users(api_key, username, role) VALUES(?, ?, ?)",
+                (admin_key, "admin@cipherx.com", "admin")
+            )
+        
+        # Create test user if not exists
+        cur = cx.execute("SELECT api_key FROM users WHERE username=?", ("testuser@cipherx.com",))
+        if not cur.fetchone():
+            cx.execute(
+                "INSERT INTO users(api_key, username, role) VALUES(?, ?, ?)",
+                ("test-user-api-key", "testuser@cipherx.com", "user")
+            )
+        
         cx.commit()
 
 
-def create_user(username: str, api_key: Optional[str] = None) -> str:
+def create_user(username: str, api_key: Optional[str] = None, role: str = "user") -> str:
     with _LOCK, _conn() as cx:
         # If user already exists, return the existing api_key (idempotent behavior)
         cur = cx.execute("SELECT api_key FROM users WHERE username=?", (username,))
@@ -82,7 +109,10 @@ def create_user(username: str, api_key: Optional[str] = None) -> str:
 
         # Use provided api_key if supplied, otherwise generate one
         final_key = api_key or secrets.token_urlsafe(32)
-        cx.execute("INSERT INTO users(api_key, username) VALUES(?, ?)", (final_key, username))
+        # Validate role
+        if role not in ("user", "admin"):
+            role = "user"
+        cx.execute("INSERT INTO users(api_key, username, role) VALUES(?, ?, ?)", (final_key, username, role))
         cx.commit()
         return final_key
 
@@ -90,6 +120,27 @@ def create_user(username: str, api_key: Optional[str] = None) -> str:
 def get_username_for_api_key(api_key: str) -> Optional[str]:
     with _LOCK, _conn() as cx:
         cur = cx.execute("SELECT username FROM users WHERE api_key=?", (api_key,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
+def get_user_by_credentials(username: str, api_key: str) -> Optional[Dict[str, str]]:
+    """Validate credentials and return user info including role"""
+    with _LOCK, _conn() as cx:
+        cur = cx.execute(
+            "SELECT username, role FROM users WHERE username=? AND api_key=?",
+            (username, api_key)
+        )
+        row = cur.fetchone()
+        if row:
+            return {"username": row[0], "role": row[1]}
+        return None
+
+
+def get_user_role(username: str) -> Optional[str]:
+    """Get the role for a given username"""
+    with _LOCK, _conn() as cx:
+        cur = cx.execute("SELECT role FROM users WHERE username=?", (username,))
         row = cur.fetchone()
         return row[0] if row else None
 
@@ -168,15 +219,16 @@ def get_history(username: str) -> List[Dict[str, Any]]:
     with _LOCK, _conn() as cx:
         cur = cx.execute(
             """
-            SELECT job_id, app_name, status, file_size, prediction, created_at FROM jobs
+            SELECT job_id, app_name, status, file_size, prediction, created_at, result_json FROM jobs
             WHERE username=?
             ORDER BY datetime(created_at) DESC
         """,
             (username,),
         )
         rows = cur.fetchall()
-        return [
-            {
+        history = []
+        for r in rows:
+            item = {
                 "job_id": r[0],
                 "app_name": r[1],
                 "status": r[2],
@@ -184,8 +236,17 @@ def get_history(username: str) -> List[Dict[str, Any]]:
                 "prediction": r[4],
                 "created_at": r[5],
             }
-            for r in rows
-        ]
+            # Extract confidence from result_json if available
+            if r[6]:
+                try:
+                    result = json.loads(r[6])
+                    confidence = result.get('confidence_score') or result.get('confidence')
+                    if confidence is not None:
+                        item['confidence'] = float(confidence) * 100 if confidence <= 1.0 else float(confidence)
+                except Exception:
+                    pass
+            history.append(item)
+        return history
 
 
 # ----- Admins helpers -----

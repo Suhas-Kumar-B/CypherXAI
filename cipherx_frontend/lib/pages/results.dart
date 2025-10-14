@@ -1,24 +1,119 @@
 // lib/pages/results.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../components/anomaly_gauge.dart';
 import '../components/json_viewer.dart';
 import '../components/pentest_finding_card.dart';
 import '../models/analysis.dart';
+import '../services/scan_service.dart';
+import '../services/auth_service.dart';
+import '../theme_provider.dart';
 
-class ResultsPage extends StatelessWidget {
+class ResultsPage extends StatefulWidget {
   final Analysis? analysis;
   const ResultsPage({Key? key, this.analysis}) : super(key: key);
 
   @override
+  State<ResultsPage> createState() => _ResultsPageState();
+}
+
+class _ResultsPageState extends State<ResultsPage> {
+  Analysis? _analysis;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _analysis = widget.analysis;
+    if (_analysis == null) {
+      _loadMostRecentAnalysis();
+    }
+  }
+
+  Future<void> _loadMostRecentAnalysis() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final scanService = context.read<ScanService>();
+      final authService = context.read<AuthService>();
+      final apiKey = authService.apiKey;
+      
+      if (apiKey != null) {
+        if (scanService.history.isEmpty) {
+          await scanService.loadHistory(apiKey);
+        }
+        
+        if (scanService.currentAnalysis != null) {
+          setState(() => _analysis = scanService.currentAnalysis);
+        } else if (scanService.history.isNotEmpty) {
+          final mostRecent = scanService.history.first;
+          if (mostRecent.id != null) {
+            final fullAnalysis = await scanService.fetchResultByJobId(
+              apiKey: apiKey,
+              jobId: mostRecent.id!,
+            );
+            if (fullAnalysis != null) {
+              setState(() => _analysis = fullAnalysis);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Error loading
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (analysis == null) {
+    if (_isLoading) {
       return const Center(
-          child: Text('No analysis selected', style: TextStyle(color: Colors.white)));
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.cyanAccent),
+            SizedBox(height: 16),
+            Text('Loading analysis...', style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
     }
 
-    final a = analysis!;
-    final scannedAt = analysis!.dateTime ?? DateFormat('MMM d, y, h:mm:ss a').format(DateTime.now());
+    if (_analysis == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.insert_drive_file_outlined, size: 64, color: Colors.white24),
+            const SizedBox(height: 16),
+            const Text('No analysis available', style: TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 8),
+            const Text('Upload an APK from Dashboard', style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                try {
+                  context.read<ThemeProvider>().setPage(0);
+                } catch (e) {
+                  // Fallback
+                }
+              },
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Go to Dashboard'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.cyanAccent,
+                foregroundColor: Colors.black,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final a = _analysis!;
+    final scannedAt = _analysis!.dateTime ?? DateFormat('MMM d, y, h:mm:ss a').format(DateTime.now());
     final isBenign = (a.prediction ?? '').toLowerCase() == 'benign';
     final statusChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -201,11 +296,45 @@ class _OverviewTab extends StatelessWidget {
                   SizedBox(
                     width: 220,
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        // You can wire this to download the JSON report if id present
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Use History page to download report')),
-                        );
+                      onPressed: () async {
+                        if (analysis.id != null) {
+                          try {
+                            final authService = context.read<AuthService>();
+                            final scanService = context.read<ScanService>();
+                            final apiKey = authService.apiKey;
+                            
+                            if (apiKey != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Downloading report...')),
+                              );
+                              
+                              // Download the report
+                              final file = await scanService.downloadReport(
+                                analysis.id!,
+                                apiKey,
+                                'downloads/${analysis.fileName}_report.json',
+                              );
+                              
+                              if (file != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Report downloaded: ${file.path}')),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Failed to download report')),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No report ID available')),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.download_outlined,
                           color: Colors.cyanAccent),

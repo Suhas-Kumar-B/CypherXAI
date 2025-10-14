@@ -40,16 +40,20 @@ class _DashboardPageState extends State<DashboardPage> {
     return tokens.map((t) => t.isEmpty ? '' : '${t[0].toUpperCase()}${t.substring(1)}').join(' ').trim();
   }
 
+  PlatformFile? selectedFile;
+
   Future<void> _pickFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['apk'],
+        withData: true, // Important: Load bytes for web compatibility
       );
 
-      if (result != null && result.files.single.path != null) {
+      if (result != null && result.files.isNotEmpty) {
         setState(() {
-          selectedFilePath = result.files.single.path!;
+          selectedFile = result.files.single;
+          selectedFilePath = selectedFile!.name; // Use name instead of path for display
         });
       }
     } catch (e) {
@@ -60,7 +64,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _analyzeApk() async {
-    if (selectedFilePath == null) {
+    if (selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an APK file first')),
       );
@@ -82,9 +86,9 @@ class _DashboardPageState extends State<DashboardPage> {
     });
 
     try {
-      final analysis = await scanService.startScan(
+      final analysis = await scanService.startScanWithFile(
         apiKey: apiKey,
-        filePath: selectedFilePath!,
+        file: selectedFile!,
         runAnomaly: runAnomaly,
         runPentest: runPentest,
         useGemini: runGemini,

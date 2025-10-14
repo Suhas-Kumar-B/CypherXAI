@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/analysis.dart';
 import '../services/scan_service.dart';
 import '../services/auth_service.dart';
+import '../theme_provider.dart';
+import 'results.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({Key? key}) : super(key: key);
@@ -31,11 +33,11 @@ class _HistoryPageState extends State<HistoryPage> {
     });
 
     try {
-      final authService = AuthService();
+      final authService = context.read<AuthService>();
       final apiKey = authService.apiKey;
 
       if (apiKey != null) {
-        final scanService = ScanService();
+        final scanService = context.read<ScanService>();
         final history = await scanService.loadHistory(apiKey);
         setState(() {
           analyses = history;
@@ -243,11 +245,39 @@ class _HistoryPageState extends State<HistoryPage> {
                                   // Actions
                                   (ctx) => IconButton(
                                         icon: const Icon(Icons.open_in_new, color: Colors.cyanAccent),
-                                        onPressed: () {
-                                          // Navigate to results for this analysis
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Opening results for ${analysis.fileName}')),
-                                          );
+                                        onPressed: () async {
+                                          // Fetch full analysis and navigate to results
+                                          if (analysis.id != null) {
+                                            final authService = context.read<AuthService>();
+                                            final scanService = context.read<ScanService>();
+                                            final apiKey = authService.apiKey;
+                                            
+                                            if (apiKey != null) {
+                                              // Show loading
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Loading analysis...')),
+                                              );
+                                              
+                                              // Fetch full details
+                                              final fullAnalysis = await scanService.fetchResultByJobId(
+                                                apiKey: apiKey,
+                                                jobId: analysis.id!,
+                                              );
+                                              
+                                              if (fullAnalysis != null) {
+                                                // Navigate to results page
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (_) => ResultsPage(analysis: fullAnalysis),
+                                                  ),
+                                                );
+                                              } else {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Failed to load analysis details')),
+                                                );
+                                              }
+                                            }
+                                          }
                                         },
                                       ),
                                 ]

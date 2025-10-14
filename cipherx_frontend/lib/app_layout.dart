@@ -13,18 +13,23 @@ import 'theme_provider.dart';
 
 // ADD: import for auth + routing back to login
 import 'services/auth_service.dart';
+import 'services/scan_service.dart';
 
 class AppLayout extends StatelessWidget {
   const AppLayout({Key? key}) : super(key: key);
 
-  Analysis? get sampleAnalysis => null;
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final scanService = Provider.of<ScanService>(context);
+    
+    // Get the most recent analysis from ScanService
+    final currentAnalysis = scanService.currentAnalysis ?? 
+                           (scanService.history.isNotEmpty ? scanService.history.first : null);
+    
     final pages = [
-      DashboardPage(analysis: sampleAnalysis),
-      ResultsPage(analysis: sampleAnalysis),
+      DashboardPage(analysis: currentAnalysis),
+      ResultsPage(analysis: currentAnalysis),
       const HistoryPage(),
       const AboutPage(),
     ];

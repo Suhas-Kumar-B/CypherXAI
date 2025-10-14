@@ -1,4 +1,4 @@
-// lib/main.dart  (REPLACEMENT)
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme_provider.dart';
@@ -6,6 +6,9 @@ import 'pages/login.dart';
 import 'services/admin_store.dart';
 import 'services/auth_service.dart';
 import 'services/scan_service.dart';
+import 'services/api_client.dart'; // Import the ApiClient
+import 'app_layout.dart';
+import 'admin/admin_app_layout.dart';
 
 void main() {
   runApp(const CipherXApp());
@@ -19,9 +22,12 @@ class CipherXApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        // Provide ApiClient so other services can use it
+        Provider<ApiClient>(create: (_) => ApiClient()),
         ChangeNotifierProvider(create: (_) => AdminStore()),
-        ChangeNotifierProvider(create: (_) => AuthService()),
+        // ScanService and AuthService are singletons - just create them without arguments
         ChangeNotifierProvider(create: (_) => ScanService()),
+        ChangeNotifierProvider(create: (_) => AuthService()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -31,12 +37,11 @@ class CipherXApp extends StatelessWidget {
             theme: ThemeData(brightness: Brightness.light, primarySwatch: Colors.cyan),
             darkTheme: ThemeData(brightness: Brightness.dark, primarySwatch: Colors.cyan),
             themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-            // Start at Login
             home: const LoginPage(),
             routes: {
               '/login': (_) => const LoginPage(),
-              // User side still accessible via code (we don't change your routes/app_layout)
-              // Admin side pushes AdminAppLayout via MaterialPageRoute inside login.
+              '/dashboard': (_) => const AppLayout(),
+              '/admin': (_) => const AdminAppLayout(),
             },
           );
         },
