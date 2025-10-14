@@ -29,12 +29,24 @@ class AuthService extends ChangeNotifier {
   String? get apiKey => _apiKey;
   bool get isLoggedIn => _role != null && _authenticatedWithBackend;
 
-  // Admin whitelist (ONLY these can access Admin side)
-  static const _admins = <String>{
-    'admin@cipherx.com',
-    'testadmin@cipherx.com',
-    'suhaskumarb748@gmail.com',
+  // Admin whitelist (fetched from backend)
+  Set<String> _admins = <String>{
+    'admin@cipherx.com', // Default admin
   };
+
+  // Fetch admin list from backend
+  Future<void> _fetchAdminList() async {
+    try {
+      final apiClient = ApiClient();
+      final adminEmails = await apiClient.getAdmins();
+      _admins = adminEmails.toSet();
+      // Always include default admin
+      _admins.add('admin@cipherx.com');
+    } catch (e) {
+      // Fallback to default if fetch fails
+      _admins = {'admin@cipherx.com'};
+    }
+  }
 
   static String displayNameFromEmail(String email) {
     final local = email.split('@').first;
@@ -61,14 +73,20 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<AuthResult> login(String email, String passwordOrKey) async {
-    // Admin: email must be in whitelist and key must match dart-define ADMIN_API_KEY
-    if (_admins.contains(email) && ApiClient.ADMIN_API_KEY.isNotEmpty && passwordOrKey == ApiClient.ADMIN_API_KEY) {
-      _role = AuthRole.admin;
-      _username = email;
-      _authenticatedWithBackend = true; // admin actions use X-Admin-Key
-      _recordActivity(email, 'LOGIN (ADMIN)');
-      notifyListeners();
-      return const AuthResult(ok: true, role: AuthRole.admin);
+    // Check if attempting admin login
+    if (ApiClient.ADMIN_API_KEY.isNotEmpty && passwordOrKey == ApiClient.ADMIN_API_KEY) {
+      // Fetch latest admin list from backend
+      await _fetchAdminList();
+      
+      // Admin: email must be in backend admin list and key must match
+      if (_admins.contains(email)) {
+        _role = AuthRole.admin;
+        _username = email;
+        _authenticatedWithBackend = true; // admin actions use X-Admin-Key
+        _recordActivity(email, 'LOGIN (ADMIN)');
+        notifyListeners();
+        return const AuthResult(ok: true, role: AuthRole.admin);
+      }
     }
 
     // User: password field is the API key

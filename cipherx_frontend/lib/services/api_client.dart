@@ -17,7 +17,8 @@ class ApiClient {
   
   final Dio dio = Dio();
   
-  static const ADMIN_API_KEY = String.fromEnvironment('ADMIN_API_KEY', defaultValue: '');
+  // Use the same default admin key as the backend
+  static const ADMIN_API_KEY = String.fromEnvironment('ADMIN_API_KEY', defaultValue: 'your-secure-admin-key');
 
   // Helper to make API calls
   Map<String, String> _getHeaders({Map<String, String>? additionalHeaders}) {
@@ -45,9 +46,13 @@ class ApiClient {
       {Map<String, String>? headers}) async {
     try {
       final uri = Uri.parse('$baseUrl$path');
+      final allHeaders = {
+        'Content-Type': 'application/json',
+        ..._getHeaders(additionalHeaders: headers ?? {}),
+      };
       final response = await http.post(
         uri,
-        headers: _getHeaders(additionalHeaders: headers ?? {}),
+        headers: allHeaders,
         body: jsonEncode(body),
       );
 
@@ -113,7 +118,10 @@ class ApiClient {
     return await postJson(
       '${ApiEndpoints.createUser}?${ApiEndpoints.usernameParam}=$username',
       {},
-      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY},
+      headers: {
+        ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+        'X-Admin-Email': 'admin@cipherx.com',
+      },
     );
   }
 
@@ -125,7 +133,10 @@ class ApiClient {
     return await postJson(
       ApiEndpoints.createUser,
       { 'username': username, 'api_key': apiKey },
-      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY},
+      headers: {
+        ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+        'X-Admin-Email': 'admin@cipherx.com',
+      },
     );
   }
 
@@ -298,26 +309,38 @@ class ApiClient {
 
   // ----- Admin endpoints -----
   Future<List<String>> getAdmins() async {
-    final res = await getJson('/admin/admins', headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    final res = await getJson('/admin/admins', headers: {
+      ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+      'X-Admin-Email': 'admin@cipherx.com',
+    });
     final list = (res['admins'] as List?) ?? [];
     return List<String>.from(list);
   }
 
   Future<void> addAdminEmail(String email) async {
-    await postJson('/admin/admins', { 'email': email }, headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    await postJson('/admin/admins', { 'email': email }, headers: {
+      ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+      'X-Admin-Email': 'admin@cipherx.com',
+    });
   }
 
   Future<void> removeAdminEmail(String email) async {
     // Simple DELETE via http since postJson is JSON-only; we can extend if needed
     final uri = Uri.parse('$baseUrl/admin/admins/$email');
-    final resp = await http.delete(uri, headers: _getHeaders(additionalHeaders: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY}));
+    final resp = await http.delete(uri, headers: _getHeaders(additionalHeaders: {
+      ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+      'X-Admin-Email': 'admin@cipherx.com',
+    }));
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException('Failed to remove admin: ${resp.statusCode} ${resp.body}');
     }
   }
 
   Future<List<Map<String, dynamic>>> getActivityLog() async {
-    final res = await getJson('/admin/activity', headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    final res = await getJson('/admin/activity', headers: {
+      ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+      'X-Admin-Email': 'admin@cipherx.com',
+    });
     return List<Map<String, dynamic>>.from((res['items'] as List?) ?? []);
   }
 }

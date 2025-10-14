@@ -104,10 +104,8 @@ class _ClientActivityPageState extends State<ClientActivityPage> {
                         return _row(cells: [
                           ts,
                           user,
-                          null,
+                          action,
                           details.isEmpty ? '—' : details,
-                        ], builders: [
-                          (ctx) => pill(action, color),
                         ]);
                       },
                     ),
@@ -130,12 +128,9 @@ class _ClientActivityPageState extends State<ClientActivityPage> {
       child: Row(
         children: [
           _cell(cells[0]?.toString() ?? '', flex: 3, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[1]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle, custom: builders.isNotEmpty ? builders[0](context) : null),
+          _cell(cells[1]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
           _cell(cells[2]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[3]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle, custom: builders.length > 1 ? builders[1](context) : null),
-          _cell(cells[4]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[5]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[6]?.toString() ?? '', flex: 1, style: isHeader ? textStyleHeader : textStyle, custom: builders.length > 2 ? builders[2](context) : null),
+          _cell(cells[3]?.toString() ?? '', flex: 3, style: isHeader ? textStyleHeader : textStyle),
         ],
       ),
     );
