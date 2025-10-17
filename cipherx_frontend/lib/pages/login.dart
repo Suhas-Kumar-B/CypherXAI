@@ -1,4 +1,3 @@
-// lib/pages/login.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
@@ -18,7 +17,6 @@ class _LoginPageState extends State<LoginPage> {
   final passCtrl = TextEditingController();
   bool loading = false;
   String? error;
-  bool isApiKeyMode = false;
 
   @override
   void dispose() {
@@ -39,20 +37,17 @@ class _LoginPageState extends State<LoginPage> {
           '• User login opens the User Dashboard.\n'
           '• Use Logout from any side to return here.\n\n'
           'AUTH MODEL:\n'
-          '  - User: Email + API Key (key from backend)\n'
-          '  - Admin: Admin Email + ADMIN_API_KEY (dart-define)\n\n'
-          'EXAMPLES (Users):\n'
-          '  - test@cipherx.com + <API_KEY>\n'
-          '  - user@cipherx.com + <API_KEY>\n'
-          '  - demo@cipherx.com + <API_KEY>\n\n'
-          'ADMIN KEY:\n'
-          '  Pass via: --dart-define=ADMIN_API_KEY=...\n',
+          '  - Email + Password\n\n'
+          'EXAMPLES:\n'
+          '  - test@cipherx.com / yourpassword\n'
+          '  - admin@cipherx.com / adminpassword\n',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.cyanAccent)),
+            child:
+                const Text('Close', style: TextStyle(color: Colors.cyanAccent)),
           )
         ],
       ),
@@ -60,21 +55,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    setState(() { loading = true; error = null; });
-    
-    AuthResult res;
-    if (isApiKeyMode) {
-      // Direct API key authentication
-      res = await AuthService().authenticateWithApiKey(emailCtrl.text.trim());
-    } else {
-      // Username/password authentication
-      res = await AuthService().login(emailCtrl.text.trim(), passCtrl.text);
-    }
-    
-    setState(() { loading = false; });
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    final res = await AuthService().login(emailCtrl.text.trim(), passCtrl.text);
+
+    setState(() => loading = false);
 
     if (!res.ok) {
-      setState(() { error = res.message ?? 'Authentication failed'; });
+      setState(() => error = res.message ?? 'Authentication failed');
       return;
     }
 
@@ -92,7 +83,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final bg = themeProvider.isDarkMode ? const Color(0xFF0B0F14) : Colors.grey[50];
+    final bg =
+        themeProvider.isDarkMode ? const Color(0xFF0B0F14) : Colors.grey[50];
 
     return Scaffold(
       backgroundColor: bg,
@@ -103,7 +95,8 @@ class _LoginPageState extends State<LoginPage> {
           TextButton.icon(
             onPressed: _showHelp,
             icon: const Icon(Icons.help_outline, color: Colors.cyanAccent),
-            label: const Text('Help', style: TextStyle(color: Colors.cyanAccent)),
+            label:
+                const Text('Help', style: TextStyle(color: Colors.cyanAccent)),
           ),
           const SizedBox(width: 8),
         ],
@@ -112,10 +105,14 @@ class _LoginPageState extends State<LoginPage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Card(
-            color: themeProvider.isDarkMode ? const Color(0xFF0F1620) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: themeProvider.isDarkMode
+                ? const Color(0xFF0F1620)
+                : Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -123,7 +120,8 @@ class _LoginPageState extends State<LoginPage> {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Colors.cyan, Colors.blue]),
+                      gradient:
+                          const LinearGradient(colors: [Colors.cyan, Colors.blue]),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(Icons.shield, color: Colors.white),
@@ -131,88 +129,68 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 12),
                   const Text(
                     'CipherX',
-                    style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  const Text('Secure Login', style: TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 22),
+                  const Text('Secure Login',
+                      style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 24),
 
-                  // Mode toggle
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton(
-                        onPressed: () => setState(() { isApiKeyMode = false; error = null; }),
-                        child: Text(
-                          'Username/Password',
-                          style: TextStyle(
-                            color: !isApiKeyMode ? Colors.cyanAccent : Colors.grey[400],
-                            fontWeight: !isApiKeyMode ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      TextButton(
-                        onPressed: () => setState(() { isApiKeyMode = true; error = null; }),
-                        child: Text(
-                          'API Key',
-                          style: TextStyle(
-                            color: isApiKeyMode ? Colors.cyanAccent : Colors.grey[400],
-                            fontWeight: isApiKeyMode ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
+                  // Username field
                   Align(
-                    alignment: Alignment.centerLeft, 
-                    child: Text(
-                      isApiKeyMode ? 'API Key' : 'Username', 
-                      style: TextStyle(color: Colors.grey[300])
-                    )
+                    alignment: Alignment.centerLeft,
+                    child:
+                        Text('Username', style: TextStyle(color: Colors.grey[300])),
                   ),
                   const SizedBox(height: 6),
                   TextField(
                     controller: emailCtrl,
                     decoration: InputDecoration(
-                      hintText: isApiKeyMode ? 'Enter your API key' : 'Enter your email',
+                      hintText: 'Enter your email',
                       filled: true,
                       fillColor: const Color(0xFF121A23),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.1)),
                       ),
                     ),
                     style: const TextStyle(color: Colors.white),
                   ),
                   const SizedBox(height: 14),
 
-                  if (!isApiKeyMode) ...[
-                    Align(alignment: Alignment.centerLeft, child: Text('Password', style: TextStyle(color: Colors.grey[300]))),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: passCtrl,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        hintText: 'Enter your password',
-                        filled: true,
-                        fillColor: const Color(0xFF121A23),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                        ),
+                  // Password field
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child:
+                        Text('Password', style: TextStyle(color: Colors.grey[300])),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your password',
+                      filled: true,
+                      fillColor: const Color(0xFF121A23),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.1)),
                       ),
-                      style: const TextStyle(color: Colors.white),
                     ),
-                  ],
-                  const SizedBox(height: 12),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 16),
 
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text(error!, style: const TextStyle(color: Colors.redAccent)),
+                      child: Text(error!,
+                          style: const TextStyle(color: Colors.redAccent)),
                     ),
 
                   SizedBox(
@@ -221,11 +199,17 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: loading ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         backgroundColor: const Color(0xFF1E88E5),
                       ),
                       child: loading
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
                           : const Text('Login'),
                     ),
                   ),

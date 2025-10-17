@@ -241,8 +241,15 @@ class _HistoryPageState extends State<HistoryPage> {
                                 builders: [
                                   // Prediction pill
                                   (ctx) => _getPredictionPill(analysis),
-                                  // Status pill
-                                  (ctx) => _getStatusPill(analysis.status),
+                                  // Status pill  ✅ ONLY CHANGE BELOW
+                                  (ctx) => _getStatusPill(
+                                        ((analysis.status == 'pending' || analysis.status.isEmpty) &&
+                                                (analysis.prediction != null ||
+                                                 analysis.confidence != null ||
+                                                 analysis.anomalyScore != null))
+                                            ? 'completed'
+                                            : analysis.status,
+                                      ),
                                   // Actions
                                   (ctx) => Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -319,10 +326,10 @@ class _HistoryPageState extends State<HistoryPage> {
                                                       };
                                                       
                                                       // Download as JSON
-                                                      final fileName = '${analysis.fileName.replaceAll('.apk', '')}_report';
+                                                      final outName = '${analysis.fileName.replaceAll('.apk', '')}_report';
                                                       final result = await DownloadHelper.downloadJson(
                                                         jsonData: reportData,
-                                                        fileName: fileName,
+                                                        fileName: outName,
                                                       );
                                                       
                                                       if (result != null) {

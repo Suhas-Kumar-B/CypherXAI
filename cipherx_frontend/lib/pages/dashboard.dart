@@ -445,13 +445,19 @@ class _DashboardPageState extends State<DashboardPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: (a.prediction == 'benign' ? Colors.green : Colors.red).withOpacity(0.12),
+                        // FIX: make comparison case-insensitive so BENIGN is green and MALICIOUS red
+                        color: (((a.prediction ?? '').toLowerCase()) == 'benign'
+                                ? Colors.green
+                                : Colors.red)
+                            .withOpacity(0.12),
                         borderRadius: BorderRadius.circular(24)
                       ),
                       child: Text(
                         (a.prediction ?? 'UNKNOWN').toUpperCase(),
                         style: TextStyle(
-                          color: a.prediction == 'benign' ? Colors.greenAccent : Colors.redAccent,
+                          color: (((a.prediction ?? '').toLowerCase()) == 'benign'
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent),
                           fontWeight: FontWeight.w700
                         ),
                       ),
@@ -569,11 +575,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.cyanAccent)),
               ),
             ),
-          ]),
+          ]), 
         ),
       );
     }
-
 
     return FutureBuilder<User>(
       future: User.me(),
