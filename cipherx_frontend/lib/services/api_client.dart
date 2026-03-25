@@ -109,11 +109,14 @@ class ApiClient {
 
   // Admin: Create user (POST)
   Future<Map<String, dynamic>> createUser(String username) async {
-    // Endpoint expects POST with header X-Admin-Key and query param username
+    // Send as JSON body instead of query parameter
     return await postJson(
-      '${ApiEndpoints.createUser}?${ApiEndpoints.usernameParam}=$username',
-      {},
-      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY},
+      ApiEndpoints.createUser,
+      {'username': username},
+      headers: {
+        ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+        'Content-Type': 'application/json',
+      },
     );
   }
 
@@ -124,8 +127,11 @@ class ApiClient {
   }) async {
     return await postJson(
       ApiEndpoints.createUser,
-      { 'username': username, 'api_key': apiKey },
-      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY},
+      {'username': username, 'api_key': apiKey},
+      headers: {
+        ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+        'Content-Type': 'application/json',
+      },
     );
   }
 
@@ -298,22 +304,34 @@ class ApiClient {
 
   // ----- Admin endpoints -----
   Future<List<String>> getAdmins() async {
-    final res = await getJson('/admin/admins', headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    final res = await getJson(
+      ApiEndpoints.adminAdmins, 
+      headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY}
+    );
     final list = (res['admins'] as List?) ?? [];
     return List<String>.from(list);
   }
 
   Future<void> addAdminEmail(String email) async {
-    await postJson('/admin/admins', { 'email': email }, headers: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY});
+    await postJson(
+      ApiEndpoints.adminAdmins,
+      {'email': email},
+      headers: {
+        ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    );
   }
 
   Future<void> removeAdminEmail(String email) async {
-    // Simple DELETE via http since postJson is JSON-only; we can extend if needed
-    final uri = Uri.parse('$baseUrl/admin/admins/$email');
-    final resp = await http.delete(uri, headers: _getHeaders(additionalHeaders: {ApiEndpoints.adminKeyHeader: ADMIN_API_KEY}));
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw ApiException('Failed to remove admin: ${resp.statusCode} ${resp.body}');
-    }
+    await postJson(
+      '${ApiEndpoints.adminAdmins}/$email',
+      {},
+      headers: {
+        ApiEndpoints.adminKeyHeader: ADMIN_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> getActivityLog() async {

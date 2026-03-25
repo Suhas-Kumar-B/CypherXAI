@@ -1,0 +1,136 @@
+# CypherXAI Codebase Analysis Report
+
+## Project Overview
+CypherXAI is a comprehensive cybersecurity application focused on APK (Android Package) malware detection and analysis. The system consists of three main components: a Python backend API, a Flutter frontend application, and a machine learning worker service for APK analysis.
+
+## Architecture
+
+### Backend (Python/FastAPI)
+- **Framework**: FastAPI
+- **Database**: SQLite (`cipherx.db`)
+- **Authentication**: API key-based authentication system
+- **Main Files**:
+  - `main.py` - FastAPI application entry point with API endpoints
+  - `auth.py` - Authentication middleware and user management
+  - `db.py` - Database operations and models
+  - `service.py` - Business logic services
+  - `models.py` - Data models
+
+### Frontend (Flutter)
+- **Framework**: Flutter/Dart
+- **Platform Support**: Android, iOS, Web, Windows, macOS, Linux
+- **Location**: `cipherx_frontend/`
+- **Structure**: Standard Flutter project structure with lib/, android/, ios/, web/ directories
+
+### ML Worker (Python)
+- **Purpose**: APK analysis and malware detection
+- **Location**: `ml_worker/`
+- **Key Components**:
+  - `apk_analyzer.py` - APK file analysis
+  - `apk_feature_extractor.py` - Feature extraction from APK files
+  - `train_apk_classifier.py` - ML model training
+  - `worker.py` - Worker service for processing requests
+  - Pre-trained models: `apk_random_forest_model.joblib`, `apk_feature_vectorizer.joblib`
+
+## Key Features
+
+### Security & Authentication
+- Admin-based authentication system
+- API key validation
+- User role management
+- Secure login endpoints
+
+### APK Analysis
+- Static analysis of APK files
+- Feature extraction for ML processing
+- Malware detection using Random Forest classifier
+- Confidence scoring for detection results
+
+### Data Management
+- SQLite database for storing analysis results
+- User management and authentication data
+- Scan history and results tracking
+
+## Technology Stack
+
+### Backend Dependencies
+- FastAPI (web framework)
+- SQLite (database)
+- Scikit-learn (machine learning)
+- Joblib (model serialization)
+- Various security and utility libraries
+
+### Frontend Dependencies
+- Flutter framework
+- HTTP client for API communication
+- Material Design UI components
+
+### ML/Analysis Dependencies
+- APK analysis libraries
+- Feature extraction tools
+- Machine learning classifiers
+- Data processing utilities
+
+## Project Structure
+
+```
+CypherXAI/
+├── backend/                 # Python FastAPI backend
+│   ├── main.py             # API endpoints and routes
+│   ├── auth.py             # Authentication logic
+│   ├── db.py               # Database operations
+│   ├── service.py          # Business services
+│   ├── models.py           # Data models
+│   └── requirements.txt    # Python dependencies
+├── cipherx_frontend/        # Flutter mobile app
+│   ├── lib/                # Dart source code
+│   ├── android/            # Android platform files
+│   ├── ios/                # iOS platform files
+│   ├── web/                # Web platform files
+│   └── pubspec.yaml        # Flutter dependencies
+├── ml_worker/              # ML processing service
+│   ├── apk_analyzer.py     # APK analysis logic
+│   ├── apk_feature_extractor.py  # Feature extraction
+│   ├── train_apk_classifier.py   # Model training
+│   ├── worker.py           # Worker service
+│   └── *.joblib           # Pre-trained ML models
+└── Storage/                # File storage directory
+```
+
+## API Endpoints (Based on code analysis)
+- Authentication endpoints (`/login`, user management)
+- APK upload and analysis endpoints
+- Results retrieval endpoints
+- Admin management endpoints
+
+## Security Features
+- API key-based authentication
+- Admin role management
+- Secure file handling for APK uploads
+- Database security with SQLite
+
+## Machine Learning Pipeline
+1. APK file upload
+2. Static analysis and feature extraction
+3. Feature vectorization
+4. Random Forest classification
+5. Confidence scoring
+6. Result storage and retrieval
+
+## Documentation & Configuration
+- Extensive markdown documentation for various fixes and features
+- Configuration files for development and deployment
+- Test scripts for API validation
+- PowerShell scripts for automation
+
+## Development Status
+The project appears to be actively developed with numerous documentation files describing recent fixes, refactoring efforts, and feature additions. The codebase includes comprehensive testing and deployment scripts.
+
+## Notable Characteristics
+- Modular architecture with clear separation of concerns
+- Comprehensive ML pipeline for malware detection
+- Multi-platform mobile application support
+- Extensive documentation and development tooling
+- Security-focused design with proper authentication
+
+This analysis provides a high-level overview of the CypherXAI codebase structure, components, and functionality based on the available source code and project organization.

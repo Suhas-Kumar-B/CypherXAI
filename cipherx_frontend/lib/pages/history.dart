@@ -220,11 +220,10 @@ class _HistoryPageState extends State<HistoryPage> {
                             separatorBuilder: (_, __) => const Divider(color: Colors.white12),
                             itemBuilder: (context, i) {
                               if (i == 0) {
-                                return _row(isHeader: true, cells: const ['File', 'Prediction', 'Confidence', 'Status', 'Size', 'Date', 'Actions']);
+                                return _row(isHeader: true, cells: const ['File', 'Prediction', 'Status', 'Size', 'Date', 'Actions']);
                               }
                               final analysis = _filteredAnalyses[i - 1];
                               final fileName = analysis.fileName.split('/').last;
-                              final confidence = analysis.confidence?.toStringAsFixed(0) ?? '0';
                               final fileSize = '${(analysis.fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
                               final date = analysis.dateTime ?? 'Unknown';
 
@@ -232,7 +231,6 @@ class _HistoryPageState extends State<HistoryPage> {
                                 cells: [
                                   fileName,
                                   null, // Will be filled by prediction pill
-                                  confidence == '0' ? '-' : '$confidence%',
                                   null, // Will be filled by status pill
                                   fileSize,
                                   date,
@@ -368,11 +366,10 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           _cell(cells[0]?.toString() ?? '', flex: 3, style: isHeader ? textStyleHeader : textStyle),
           _cell(cells[1]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle, custom: builders.isNotEmpty ? builders[0](context) : null),
-          _cell(cells[2]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[3]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle, custom: builders.length > 1 ? builders[1](context) : null),
+          _cell(cells[2]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle, custom: builders.length > 1 ? builders[1](context) : null),
+          _cell(cells[3]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
           _cell(cells[4]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[5]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[6]?.toString() ?? '', flex: 1, style: isHeader ? textStyleHeader : textStyle, custom: builders.length > 2 ? builders[2](context) : null),
+          _cell(cells[5]?.toString() ?? '', flex: 1, style: isHeader ? textStyleHeader : textStyle, custom: builders.length > 2 ? builders[2](context) : null),
         ],
       ),
     );

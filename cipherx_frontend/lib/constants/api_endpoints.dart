@@ -6,6 +6,7 @@ class ApiEndpoints {
   
   // Admin endpoints
   static const String createUser = '$admin/create-user';
+  static const String adminAdmins = '$admin/admins';
   
   // User endpoints
   static const String scan = '/scan';

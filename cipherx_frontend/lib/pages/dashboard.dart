@@ -276,7 +276,7 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(height: 16),
 
-              // Three checkboxes in the requested order
+              // Two checkboxes in the requested order
               Row(
                 children: [
                   Checkbox(
@@ -297,17 +297,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     activeColor: Colors.cyanAccent,
                   ),
                   const Text('Run Penetration Test', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: runGemini,
-                    onChanged: (v) => setState(() => runGemini = v ?? false),
-                    checkColor: Colors.black,
-                    activeColor: Colors.cyanAccent,
-                  ),
-                  const Text('AI-Powered Report (Gemini)', style: TextStyle(color: Colors.white)),
                 ],
               ),
               const SizedBox(height: 10),
@@ -445,26 +434,17 @@ class _DashboardPageState extends State<DashboardPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: (a.prediction == 'benign' ? Colors.green : Colors.red).withOpacity(0.12),
+                        color: (a.prediction?.toLowerCase() == 'benign' ? Colors.green : Colors.red).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(24)
                       ),
                       child: Text(
                         (a.prediction ?? 'UNKNOWN').toUpperCase(),
                         style: TextStyle(
-                          color: a.prediction == 'benign' ? Colors.greenAccent : Colors.redAccent,
+                          color: a.prediction?.toLowerCase() == 'benign' ? Colors.greenAccent : Colors.redAccent,
                           fontWeight: FontWeight.w700
                         ),
                       ),
                     ),
-                  ]),
-                ),
-                // Confidence
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Confidence', style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 6),
-                    Text('${a.confidence?.toStringAsFixed(0) ?? '-'}%',
-                        style: const TextStyle(color: Colors.cyanAccent, fontSize: 28, fontWeight: FontWeight.bold)),
                   ]),
                 ),
               ],
@@ -481,15 +461,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     const Text('Scanned', style: TextStyle(color: Colors.white70)),
                     const SizedBox(height: 6),
                     Text(a.dateTime ?? 'Unknown', style: const TextStyle(color: Colors.white)),
-                  ]),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('File Size', style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 6),
-                    Text('${(a.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
                     const Text('Time', style: TextStyle(color: Colors.white70)),
                     const SizedBox(height: 6),
@@ -617,8 +588,6 @@ class _DashboardPageState extends State<DashboardPage> {
                       Expanded(child: stat('Total Scans', '${stats?['total_scans'] ?? 0}', Icons.shield_outlined)),
                       const SizedBox(width: 12),
                       Expanded(child: stat('Threats Detected', '${stats?['threats_detected'] ?? 0}', Icons.warning_amber)),
-                      const SizedBox(width: 12),
-                      Expanded(child: stat('Avg Confidence', '${stats?['avg_confidence']?.toString() ?? '0.0'}%', Icons.trending_up)),
                       const SizedBox(width: 12),
                       Expanded(child: stat('Processing Time', stats?['avg_processing_time'] ?? '<30s', Icons.access_time)),
                     ],

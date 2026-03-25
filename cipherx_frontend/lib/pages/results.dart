@@ -197,10 +197,6 @@ class _ResultsPageState extends State<ResultsPage> {
             child: Row(
               children: [
                 Expanded(
-                    child: kpi('ML Confidence', '${a.confidence?.toStringAsFixed(0) ?? '0'}%',
-                        color: Colors.cyanAccent)),
-                const SizedBox(width: 12),
-                Expanded(
                     child: kpi('Anomaly Score',
                         (a.anomalyScore ?? 0).toStringAsFixed(3),
                         color: Colors.purpleAccent)),

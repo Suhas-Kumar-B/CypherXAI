@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude specific shared preferences that shouldn't be backed up -->
+    <exclude domain="sharedpref" path="sensitive_data.xml"/>
+    
+    <!-- Include all other files in the app's data directory -->
+    <include domain="sharedpref" path="."/>
+    <include domain="database" path="."/>
+    <include domain="file" path="."/>
+    <include domain="external" path="."/>
+</full-backup-content>

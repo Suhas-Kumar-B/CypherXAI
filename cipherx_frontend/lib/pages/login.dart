@@ -5,6 +5,7 @@ import '../theme_provider.dart';
 import '../services/auth_service.dart';
 import '../admin/admin_app_layout.dart';
 import '../app_layout.dart';
+import '../services/api_client.dart'; // Import ApiClient
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -18,7 +19,6 @@ class _LoginPageState extends State<LoginPage> {
   final passCtrl = TextEditingController();
   bool loading = false;
   String? error;
-  bool isApiKeyMode = false;
 
   @override
   void dispose() {
@@ -39,14 +39,12 @@ class _LoginPageState extends State<LoginPage> {
           '• User login opens the User Dashboard.\n'
           '• Use Logout from any side to return here.\n\n'
           'AUTH MODEL:\n'
-          '  - User: Email + API Key (key from backend)\n'
-          '  - Admin: Admin Email + ADMIN_API_KEY (dart-define)\n\n'
+          '  - User: Email + Password\n'
+          '  - Admin: Admin Email + Password\n\n'
           'EXAMPLES (Users):\n'
-          '  - test@cipherx.com + <API_KEY>\n'
-          '  - user@cipherx.com + <API_KEY>\n'
-          '  - demo@cipherx.com + <API_KEY>\n\n'
-          'ADMIN KEY:\n'
-          '  Pass via: --dart-define=ADMIN_API_KEY=...\n',
+          '  - test@cipherx.com + password123\n'
+          '  - user@cipherx.com + password123\n'
+          '  - demo@cipherx.com + password123\n',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -62,15 +60,9 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _submit() async {
     setState(() { loading = true; error = null; });
     
-    AuthResult res;
-    if (isApiKeyMode) {
-      // Direct API key authentication
-      res = await AuthService().authenticateWithApiKey(emailCtrl.text.trim());
-    } else {
-      // Username/password authentication
-      res = await AuthService().login(emailCtrl.text.trim(), passCtrl.text);
-    }
+    final res = await AuthService().login(emailCtrl.text.trim(), passCtrl.text);
     
+    if (!mounted) return;
     setState(() { loading = false; });
 
     if (!res.ok) {
@@ -79,10 +71,12 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     if (res.role == AuthRole.admin) {
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const AdminAppLayout()),
       );
     } else {
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const AppLayout()),
       );
@@ -137,96 +131,113 @@ class _LoginPageState extends State<LoginPage> {
                   const Text('Secure Login', style: TextStyle(color: Colors.white70)),
                   const SizedBox(height: 22),
 
-                  // Mode toggle
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton(
-                        onPressed: () => setState(() { isApiKeyMode = false; error = null; }),
-                        child: Text(
-                          'Username/Password',
-                          style: TextStyle(
-                            color: !isApiKeyMode ? Colors.cyanAccent : Colors.grey[400],
-                            fontWeight: !isApiKeyMode ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      TextButton(
-                        onPressed: () => setState(() { isApiKeyMode = true; error = null; }),
-                        child: Text(
-                          'API Key',
-                          style: TextStyle(
-                            color: isApiKeyMode ? Colors.cyanAccent : Colors.grey[400],
-                            fontWeight: isApiKeyMode ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  Align(
-                    alignment: Alignment.centerLeft, 
+                  // Email Field
+                  const Align(
+                    alignment: Alignment.centerLeft,
                     child: Text(
-                      isApiKeyMode ? 'API Key' : 'Username', 
-                      style: TextStyle(color: Colors.grey[300])
-                    )
+                      'Email',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   TextField(
                     controller: emailCtrl,
+                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: isApiKeyMode ? 'Enter your API key' : 'Enter your email',
+                      hintText: 'Enter your email',
+                      hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: const Color(0xFF121A23),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.emailAddress,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
 
-                  if (!isApiKeyMode) ...[
-                    Align(alignment: Alignment.centerLeft, child: Text('Password', style: TextStyle(color: Colors.grey[300]))),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: passCtrl,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        hintText: 'Enter your password',
-                        filled: true,
-                        fillColor: const Color(0xFF121A23),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                        ),
+                  // Password Field
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Password',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
-                      style: const TextStyle(color: Colors.white),
                     ),
-                  ],
-                  const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Enter your password',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: const Color(0xFF121A23),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
+                  // Error Message
                   if (error != null)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text(error!, style: const TextStyle(color: Colors.redAccent)),
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        error!,
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
                     ),
+
+                  const SizedBox(height: 12),
 
                   SizedBox(
                     width: double.infinity,
+                    height: 48,
                     child: ElevatedButton(
                       onPressed: loading ? null : _submit,
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         backgroundColor: const Color(0xFF1E88E5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: loading
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Login'),
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Sign In',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],

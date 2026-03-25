@@ -80,20 +80,6 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                         ),
                         style: const TextStyle(color: Colors.white),
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: nameCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Optional note (ignored)',
-                          filled: true,
-                          fillColor: const Color(0xFF121A23),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                          ),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                      ),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: 180,
@@ -114,7 +100,7 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                             }
                           },
                           icon: const Icon(Icons.add),
-                          label: const Text('Add User'),
+                          label: const Text('Add Admin'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -139,13 +125,11 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
                       separatorBuilder: (_, __) => const Divider(color: Colors.white12),
                       itemBuilder: (context, i) {
                         if (i == 0) {
-                          return _row(isHeader: true, cells: const ['Admin Email', '—', '—', 'Actions']);
+                          return _row(isHeader: true, cells: const ['Admin Email', 'Actions']);
                         }
                         final email = admins[i - 1];
                         return _row(cells: [
                           email,
-                          '—',
-                          '—',
                           '—',
                         ], builders: [
                           (ctx) => Row(
@@ -186,9 +170,7 @@ class _CrudUsersPageState extends State<CrudUsersPage> {
       child: Row(
         children: [
           _cell(cells[0]?.toString() ?? '', flex: 3, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[1]?.toString() ?? '', flex: 3, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[2]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle),
-          _cell(cells[3]?.toString() ?? '', flex: 2, style: isHeader ? textStyleHeader : textStyle, custom: builders.isNotEmpty ? builders[0](context) : null),
+          _cell(cells[1]?.toString() ?? '', flex: 1, style: isHeader ? textStyleHeader : textStyle, custom: builders.isNotEmpty ? builders[0](context) : null),
         ],
       ),
     );
